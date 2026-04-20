@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { Navbar } from '@/components/layout/Navbar';
-import { Star, Calendar, MapPin, X, Loader2, AlertTriangle } from 'lucide-react';
+import { Calendar, MapPin, X, Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { useState } from 'react';
@@ -11,7 +11,9 @@ import api from '@/lib/api';
 import { Booking } from '@/types';
 
 export default function UserDashboardPage() {
-    const { user } = useAuth();
+
+    // ── Hooks — trebuie să fie PRIMELE, înainte de orice return ──────────
+    const { user, isLoading: authLoading } = useRequireAuth('USER');
     const queryClient = useQueryClient();
     const [cancelWarning, setCancelWarning] = useState<number | null>(null);
     const [error, setError] = useState('');
@@ -22,6 +24,7 @@ export default function UserDashboardPage() {
             const res = await api.get('/api/user/bookings');
             return res.data as Booking[];
         },
+        enabled: !!user, // rulează doar dacă userul e autentificat
     });
 
     const { mutate: cancelBooking, isPending: cancelling } = useMutation({
@@ -37,6 +40,15 @@ export default function UserDashboardPage() {
             setError(err.response?.data || 'Eroare la anulare');
         },
     });
+
+    // ── Loading auth ──────────────────────────────────────────────────────
+    if (authLoading || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="animate-spin text-indigo-400" size={32} />
+            </div>
+        );
+    }
 
     const upcoming = bookings?.filter(b => b.status === 'CONFIRMED') || [];
     const past = bookings?.filter(b =>

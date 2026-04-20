@@ -1,15 +1,19 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { Navbar } from '@/components/layout/Navbar';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
-import { Calendar, Check, Users, Loader2, Plus } from 'lucide-react';
+import { Calendar, Users, Loader2, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { Booking } from '@/types';
 
 export default function LocationDashboardPage() {
+
+    // ── Hooks ─────────────────────────────────────────────────────────────
+    const { user, isLoading: authLoading } = useRequireAuth('LOCATION');
     const queryClient = useQueryClient();
     const [selectedDate, setSelectedDate] = useState(
         format(new Date(), 'yyyy-MM-dd')
@@ -32,6 +36,7 @@ export default function LocationDashboardPage() {
             );
             return res.data as Booking[];
         },
+        enabled: !!user,
     });
 
     const { mutate: markNoShow } = useMutation({
@@ -58,12 +63,20 @@ export default function LocationDashboardPage() {
         },
     });
 
+    // ── Loading auth ──────────────────────────────────────────────────────
+    if (authLoading || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="animate-spin text-indigo-400" size={32} />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
-                {/* Header */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h1 className="text-xl font-bold text-gray-800">
                         Dashboard Locație
@@ -124,8 +137,7 @@ export default function LocationDashboardPage() {
                                                 : 'bg-gray-100 text-gray-500'
                                         }`}>
                                             {booking.status === 'CONFIRMED'
-                                                ? 'Confirmată'
-                                                : booking.status}
+                                                ? 'Confirmată' : booking.status}
                                         </span>
                                         {booking.status === 'CONFIRMED' && (
                                             <button
@@ -160,22 +172,34 @@ export default function LocationDashboardPage() {
                     {showCreateZone && (
                         <div className="border border-indigo-100 bg-indigo-50 rounded-xl p-4 space-y-3">
                             <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { label: 'Nume zonă', key: 'name', type: 'text', placeholder: 'ex: Terasă' },
+                                    { label: 'Persoane max/rezervare', key: 'maxPersons', type: 'number' },
+                                    { label: 'Rezervări paralele max', key: 'capacity', type: 'number' },
+                                    { label: 'Oră deschidere', key: 'openTime', type: 'time' },
+                                    { label: 'Oră închidere', key: 'closeTime', type: 'time' },
+                                ].map(({ label, key, type, placeholder }) => (
+                                    <div key={key}>
+                                        <label className="text-xs font-medium text-gray-600 mb-1 block">
+                                            {label}
+                                        </label>
+                                        <input
+                                            type={type}
+                                            value={(zoneForm as any)[key]}
+                                            placeholder={placeholder}
+                                            onChange={(e) => setZoneForm(p => ({
+                                                ...p,
+                                                [key]: type === 'number'
+                                                    ? Number(e.target.value)
+                                                    : e.target.value
+                                            }))}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                                        />
+                                    </div>
+                                ))}
                                 <div>
                                     <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Nume zonă
-                                    </label>
-                                    <input
-                                        value={zoneForm.name}
-                                        onChange={(e) => setZoneForm(p => ({
-                                            ...p, name: e.target.value
-                                        }))}
-                                        placeholder="ex: Terasă"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Durată rezervare (min)
+                                        Durată rezervare
                                     </label>
                                     <select
                                         value={zoneForm.bookingDurationMinutes}
@@ -189,60 +213,6 @@ export default function LocationDashboardPage() {
                                         <option value={90}>1.5 ore</option>
                                         <option value={120}>2 ore</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Rezervări paralele max
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={zoneForm.capacity}
-                                        onChange={(e) => setZoneForm(p => ({
-                                            ...p, capacity: Number(e.target.value)
-                                        }))}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Persoane max per rezervare
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={zoneForm.maxPersons}
-                                        onChange={(e) => setZoneForm(p => ({
-                                            ...p, maxPersons: Number(e.target.value)
-                                        }))}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Oră deschidere
-                                    </label>
-                                    <input
-                                        type="time"
-                                        value={zoneForm.openTime}
-                                        onChange={(e) => setZoneForm(p => ({
-                                            ...p, openTime: e.target.value
-                                        }))}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600 mb-1 block">
-                                        Oră închidere
-                                    </label>
-                                    <input
-                                        type="time"
-                                        value={zoneForm.closeTime}
-                                        onChange={(e) => setZoneForm(p => ({
-                                            ...p, closeTime: e.target.value
-                                        }))}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    />
                                 </div>
                             </div>
                             <button

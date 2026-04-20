@@ -8,8 +8,10 @@ import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import api from '@/lib/api';
 import { AdminLocation, AuditLog } from '@/types';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 export default function AdminDashboardPage() {
+    const { user, isLoading: authLoading } = useRequireAuth('ADMIN');
     const queryClient = useQueryClient();
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [rejectReason, setRejectReason] = useState('');
@@ -24,6 +26,7 @@ export default function AdminDashboardPage() {
             const res = await api.get('/api/admin/locations/pending');
             return res.data as AdminLocation[];
         },
+        enabled: !!user,
     });
 
     const { data: auditLogs } = useQuery({
@@ -32,6 +35,7 @@ export default function AdminDashboardPage() {
             const res = await api.get('/api/admin/audit-log');
             return res.data as AuditLog[];
         },
+        enabled: !!user,
     });
 
     const { mutate: approve, isPending: approving } = useMutation({

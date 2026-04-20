@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const api = axios.create({
     baseURL: 'http://localhost:8080',
@@ -16,13 +17,18 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Interceptor — dacă primim 401, redirecționăm la login
+// Interceptor — dacă primim 401 (Unauthorized/Token Expirat), redirecționăm la login
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
+            // Curățăm datele locale
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            
+            // Curățăm cookie-ul ca să nu ne mai blocheze middleware-ul
+            Cookies.remove('token', { path: '/' });
+            
             window.location.href = '/login';
         }
         return Promise.reject(error);

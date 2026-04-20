@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
     user: User | null;
@@ -28,14 +29,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = (userData: User) => {
         setUser(userData);
+        // Salvăm în localStorage pentru Axios și persistența frontend-ului
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', userData.token);
+        
+        // Salvăm în Cookie pentru Middleware-ul Next.js (valabil 7 zile)
+        Cookies.set('token', userData.token, { expires: 7, path: '/' });
     };
 
     const logout = () => {
         setUser(null);
+        // Ștergem din localStorage
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        
+        // Ștergem și Cookie-ul
+        Cookies.remove('token', { path: '/' });
+        
         window.location.href = '/';
     };
 

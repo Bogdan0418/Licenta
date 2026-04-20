@@ -36,6 +36,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {
         http
+                // Activez CORS
+                .cors(org.springframework.security.config.Customizer.withDefaults())
+
                 // Dezactivez CSRF — nu e necesar pentru API-uri REST cu JWT
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -101,5 +104,28 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         // BCrypt cu 12 runde
         return new BCryptPasswordEncoder(12);
+    }
+
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+
+        // Permite frontend-ului tău să facă cereri
+        configuration.setAllowedOrigins(java.util.List.of("http://localhost:3000"));
+
+        // Permite metodele HTTP folosite de tine
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // IMPORTANT: Permite trimiterea header-ului "Authorization"
+        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Cache-Control", "Content-Type"));
+
+        // Permite trimiterea credențialelor (dacă e nevoie vreodată de cookies, deși folosești JWT)
+        configuration.setAllowCredentials(true);
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        // Aplică regulile de mai sus pentru toate rutele API-ului
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 }
