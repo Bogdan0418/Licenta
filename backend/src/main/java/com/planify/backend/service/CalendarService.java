@@ -4,6 +4,7 @@ import com.planify.backend.dto.request.CreateBookingRequest;
 import com.planify.backend.dto.request.CreateZoneRequest;
 import com.planify.backend.dto.response.BookingResponse;
 import com.planify.backend.dto.response.SlotResponse;
+import com.planify.backend.dto.response.ZoneSummaryResponse;
 import com.planify.backend.entity.*;
 import com.planify.backend.entity.enums.BookingStatus;
 import com.planify.backend.repository.*;
@@ -37,7 +38,93 @@ public class CalendarService {
         this.userRepository = userRepository;
     }
 
-    public List<SlotResponse> getAvailableSlots(Long zoneId, LocalDate date) {
+    // --- ZONES CRUD ---
+
+    @Transactional(readOnly = true)
+    public List<ZoneSummaryResponse> getLocationZones(Long locationId) {
+        return zoneRepository.findByLocationIdAndIsActiveTrue(locationId)
+                .stream()
+                .map(z -> {
+                    ZoneConfig config = configRepository.findByZoneId(z.getId()).orElse(null);
+                    return new ZoneSummaryResponse(
+                            z.getId(),
+                            z.getName(),
+                            z.getCapacity(),
+                            z.getMaxPersons(),
+                            config != null ? config.getAllowedDurationsList() : List.of(60),
+                            config != null ? config.getOpenTime().toString() : null,
+                            config != null ? config.getCloseTime().toString() : null
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public VenueZone createZone(CreateZoneRequest req, Long locationId) {
+        Location location = new Location();
+        location.setId(locationId);
+
+        VenueZone zone = new VenueZone();
+        zone.setLocation(location);
+        zone.setName(req.name());
+        zone.setCapacity(req.capacity());
+        zone.setMaxPersons(req.maxPersons());
+        zone.setIsActive(true);
+
+        VenueZone savedZone = zoneRepository.save(zone);
+
+        ZoneConfig config = new ZoneConfig();
+        config.setZone(savedZone);
+        config.setSlotDurationMinutes(30);
+        config.setAllowedDurationsList(req.allowedDurations());
+        config.setOpenTime(LocalTime.parse(req.openTime()));
+        config.setCloseTime(LocalTime.parse(req.closeTime()));
+        config.setActiveDays(127);
+        configRepository.save(config);
+
+        return savedZone;
+    }
+
+    @Transactional
+    public void updateZone(Long zoneId, CreateZoneRequest req, Long locationId) {
+        VenueZone zone = zoneRepository.findById(zoneId)
+                .orElseThrow(() -> new IllegalArgumentException("Zona nu a fost găsită"));
+
+        if (!zone.getLocation().getId().equals(locationId)) {
+            throw new IllegalArgumentException("Nu aveți permisiunea de a edita această zonă");
+        }
+
+        zone.setName(req.name());
+        zone.setCapacity(req.capacity());
+        zone.setMaxPersons(req.maxPersons());
+        zoneRepository.save(zone);
+
+        ZoneConfig config = configRepository.findByZoneId(zoneId)
+                .orElseThrow(() -> new IllegalArgumentException("Configurația zonei nu a fost găsită"));
+
+        config.setAllowedDurationsList(req.allowedDurations());
+        config.setOpenTime(LocalTime.parse(req.openTime()));
+        config.setCloseTime(LocalTime.parse(req.closeTime()));
+        configRepository.save(config);
+    }
+
+    @Transactional
+    public void deleteZone(Long zoneId, Long locationId) {
+        VenueZone zone = zoneRepository.findById(zoneId)
+                .orElseThrow(() -> new IllegalArgumentException("Zona nu a fost găsită"));
+
+        if (!zone.getLocation().getId().equals(locationId)) {
+            throw new IllegalArgumentException("Nu aveți permisiunea de a șterge această zonă");
+        }
+
+        // Soft delete
+        zone.setIsActive(false);
+        zoneRepository.save(zone);
+    }
+
+    // --- SLOTS & BOOKINGS ---
+
+    public List<SlotResponse> getAvailableSlots(Long zoneId, LocalDate date, Integer requestedDuration) {
         VenueZone zone = zoneRepository.findById(zoneId)
                 .orElseThrow(() -> new IllegalArgumentException("Zona nu a fost găsită"));
 
@@ -49,14 +136,18 @@ public class CalendarService {
             return List.of();
         }
 
+        // Verificăm dacă durata cerută este permisă
+        if (!config.getAllowedDurationsList().contains(requestedDuration)) {
+            return List.of(); // Sau putem arunca excepție
+        }
+
         List<Booking> rezervariZilei = bookingRepository.findConfirmedByZoneAndDate(zoneId, date);
         List<SlotResponse> sloturi = new ArrayList<>();
         LocalTime cursor = config.getOpenTime();
-        int durata = config.getBookingDurationMinutes();
-        int pas = config.getSlotDurationMinutes();
+        int pas = config.getSlotDurationMinutes(); // Salturi de 30 min
 
-        while (!cursor.plusMinutes(durata).isAfter(config.getCloseTime())) {
-            LocalTime slotEnd = cursor.plusMinutes(durata);
+        while (!cursor.plusMinutes(requestedDuration).isAfter(config.getCloseTime())) {
+            LocalTime slotEnd = cursor.plusMinutes(requestedDuration);
             final LocalTime slotStart = cursor;
 
             long ocupate = rezervariZilei.stream()
@@ -85,7 +176,11 @@ public class CalendarService {
         ZoneConfig config = configRepository.findByZoneId(req.zoneId())
                 .orElseThrow(() -> new IllegalArgumentException("Configurația zonei nu a fost găsită"));
 
-        LocalTime endTime = req.startTime().plusMinutes(config.getBookingDurationMinutes());
+        if (!config.getAllowedDurationsList().contains(req.duration())) {
+            throw new IllegalArgumentException("Durata aleasă nu este permisă pentru această zonă");
+        }
+
+        LocalTime endTime = req.startTime().plusMinutes(req.duration());
 
         if (req.startTime().isBefore(config.getOpenTime()) || endTime.isAfter(config.getCloseTime())) {
             throw new IllegalArgumentException("Intervalul ales este în afara programului locației");
@@ -168,32 +263,6 @@ public class CalendarService {
         User user = booking.getUser();
         applyRatingPenalty(user, -1.0, "Neprezentare la rezervare");
         userRepository.save(user);
-    }
-
-    @Transactional
-    public VenueZone createZone(CreateZoneRequest req, Long locationId) {
-        Location location = new Location();
-        location.setId(locationId);
-
-        VenueZone zone = new VenueZone();
-        zone.setLocation(location);
-        zone.setName(req.name());
-        zone.setCapacity(req.capacity());
-        zone.setMaxPersons(req.maxPersons());
-        zone.setIsActive(true);
-
-        VenueZone savedZone = zoneRepository.save(zone);
-
-        ZoneConfig config = new ZoneConfig();
-        config.setZone(savedZone);
-        config.setSlotDurationMinutes(30);
-        config.setBookingDurationMinutes(req.bookingDurationMinutes());
-        config.setOpenTime(LocalTime.parse(req.openTime()));
-        config.setCloseTime(LocalTime.parse(req.closeTime()));
-        config.setActiveDays(127);
-        configRepository.save(config);
-
-        return savedZone;
     }
 
     @Transactional(readOnly = true)

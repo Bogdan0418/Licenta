@@ -6,9 +6,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
-import { Calendar, Users, Loader2, Plus, Star, MessageSquare, History, Check } from 'lucide-react';
+import { Calendar, Users, Loader2, Plus, Star, MessageSquare, History, Check, Edit2, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import { Booking, Review } from '@/types';
+import { Booking, Review, Zone } from '@/types';
 
 export default function LocationDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('LOCATION');
@@ -16,7 +16,24 @@ export default function LocationDashboardPage() {
     
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [showCreateZone, setShowCreateZone] = useState(false);
-    const [zoneForm, setZoneForm] = useState({ name: '', capacity: 3, maxPersons: 20, bookingDurationMinutes: 60, openTime: '10:00', closeTime: '22:00' });
+    const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
+    
+    // ATENȚIE: Am folosit allowedDurations în loc de bookingDurationMinutes
+    const [zoneForm, setZoneForm] = useState<{
+        name: string;
+        capacity: number;
+        maxPersons: number;
+        allowedDurations: number[];
+        openTime: string;
+        closeTime: string;
+    }>({ 
+        name: '', 
+        capacity: 3, 
+        maxPersons: 20, 
+        allowedDurations: [60], 
+        openTime: '10:00', 
+        closeTime: '22:00' 
+    });
     
     const [reviewModal, setReviewModal] = useState<number | null>(null);
     const [rating, setRating] = useState(5);
@@ -53,6 +70,12 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
+    const { data: zones, isLoading: zonesLoading } = useQuery({
+        queryKey: ['location-zones'],
+        queryFn: async () => (await api.get('/api/location/zones')).data as Zone[],
+        enabled: !!user,
+    });
+
     const { mutate: markNoShow } = useMutation({
         mutationFn: async (bookingId: number) => api.post(`/api/location/bookings/${bookingId}/no-show`),
         onSuccess: () => {
@@ -61,13 +84,40 @@ export default function LocationDashboardPage() {
         }
     });
 
-    const { mutate: createZone, isPending: creatingZone } = useMutation({
-        mutationFn: async () => api.post('/api/location/zones', zoneForm),
+    const { mutate: saveZone, isPending: savingZone } = useMutation({
+        mutationFn: async () => {
+            if (editingZoneId) {
+                return api.put(`/api/location/zones/${editingZoneId}`, zoneForm);
+            }
+            return api.post('/api/location/zones', zoneForm);
+        },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['location-zones'] });
             setShowCreateZone(false);
-            setZoneForm({ name: '', capacity: 3, maxPersons: 20, bookingDurationMinutes: 60, openTime: '10:00', closeTime: '22:00' });
+            setEditingZoneId(null);
+            setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], openTime: '10:00', closeTime: '22:00' });
         },
     });
+
+    const { mutate: deleteZone } = useMutation({
+        mutationFn: async (id: number) => api.delete(`/api/location/zones/${id}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['location-zones'] });
+        },
+    });
+
+    const handleEditZone = (zone: Zone) => {
+        setEditingZoneId(zone.id);
+        setZoneForm({
+            name: zone.name,
+            capacity: zone.capacity,
+            maxPersons: zone.maxPersons,
+            allowedDurations: zone.allowedDurations || [60],
+            openTime: zone.openTime.substring(0, 5),
+            closeTime: zone.closeTime.substring(0, 5)
+        });
+        setShowCreateZone(true);
+    };
 
     const { mutate: submitReview, isPending: submittingReview } = useMutation({
         mutationFn: async () => api.post('/api/location/reviews', { bookingId: reviewModal, rating, comment }),
@@ -219,22 +269,126 @@ export default function LocationDashboardPage() {
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-semibold text-gray-800">Zone rezervabile</h2>
-                                <button onClick={() => setShowCreateZone(!showCreateZone)} className="flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm"><Plus size={14} /> Adaugă zonă</button>
+                                <button 
+                                    onClick={() => {
+                                        setEditingZoneId(null);
+                                        setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], openTime: '10:00', closeTime: '22:00' });
+                                        setShowCreateZone(!showCreateZone);
+                                    }} 
+                                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                                >
+                                    <Plus size={14} /> Adaugă zonă
+                                </button>
                             </div>
+
+                            {!zonesLoading && zones && zones.length > 0 && (
+                                <div className="mb-4 space-y-3">
+                                    {zones.map((zone) => (
+                                        <div key={zone.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-800">{zone.name}</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Capacitate: {zone.capacity} locuri • Max {zone.maxPersons} pers.
+                                                </p>
+                                                <p className="text-xs text-indigo-600 font-medium mt-0.5">
+                                                    Program: {zone.openTime.substring(0,5)} - {zone.closeTime.substring(0,5)} • 
+                                                    Durate: {zone.allowedDurations?.map(d => d === 90 ? '1.5h' : `${d/60}h`).join(', ') || 'N/A'}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleEditZone(zone)}
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
+                                                    title="Editează"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        if (window.confirm('Sigur doriți să ștergeți această zonă? Istoricul rezervărilor nu va fi afectat.')) {
+                                                            deleteZone(zone.id);
+                                                        }
+                                                    }}
+                                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                                    title="Șterge"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             {showCreateZone && (
-                                <div className="border border-indigo-100 bg-indigo-50 rounded-xl p-4 space-y-3">
+                                <div className="border border-indigo-100 bg-indigo-50 rounded-xl p-4 space-y-4 mt-4">
+                                    <h3 className="text-sm font-semibold text-indigo-800 mb-2">
+                                        {editingZoneId ? 'Editează zona' : 'Creează o zonă nouă'}
+                                    </h3>
                                     <div className="grid grid-cols-2 gap-3">
-                                        {[{ label: 'Nume', key: 'name', type: 'text', placeholder: 'ex: Terasă' }, { label: 'Pers max', key: 'maxPersons', type: 'number' }, { label: 'Capacitate', key: 'capacity', type: 'number' }, { label: 'Oră deschidere', key: 'openTime', type: 'time' }, { label: 'Oră închidere', key: 'closeTime', type: 'time' }].map(({ label, key, type, placeholder }) => (
-                                            <div key={key}><label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label><input type={type} value={(zoneForm as any)[key]} placeholder={placeholder} onChange={(e) => setZoneForm(p => ({ ...p, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" /></div>
+                                        {[{ label: 'Nume', key: 'name', type: 'text', placeholder: 'ex: Terasă' }, 
+                                          { label: 'Pers max / rezervare', key: 'maxPersons', type: 'number' }, 
+                                          { label: 'Capacitate sloturi', key: 'capacity', type: 'number' }, 
+                                          { label: 'Oră deschidere', key: 'openTime', type: 'time' }, 
+                                          { label: 'Oră închidere', key: 'closeTime', type: 'time' }].map(({ label, key, type, placeholder }) => (
+                                            <div key={key}>
+                                                <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
+                                                <input 
+                                                    type={type} 
+                                                    value={(zoneForm as any)[key]} 
+                                                    placeholder={placeholder} 
+                                                    onChange={(e) => setZoneForm(p => ({ ...p, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))} 
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400" 
+                                                />
+                                            </div>
                                         ))}
-                                        <div>
-                                            <label className="text-xs font-medium text-gray-600 mb-1 block">Durată</label>
-                                            <select value={zoneForm.bookingDurationMinutes} onChange={(e) => setZoneForm(p => ({ ...p, bookingDurationMinutes: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
-                                                <option value={60}>1 oră</option><option value={90}>1.5 ore</option><option value={120}>2 ore</option>
-                                            </select>
+
+                                        {/* AICI ESTE NOUL SELECTOR PENTRU DURATE (CHECKBOX-URI) */}
+                                        <div className="col-span-2 mt-2">
+                                            <label className="text-xs font-medium text-gray-600 mb-2 block">Durate permise (minute)</label>
+                                            <div className="flex gap-3">
+                                                {[60, 90, 120].map((mins) => (
+                                                    <label key={mins} className="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={zoneForm.allowedDurations.includes(mins)}
+                                                            onChange={(e) => {
+                                                                const newDurations = e.target.checked 
+                                                                    ? [...zoneForm.allowedDurations, mins]
+                                                                    : zoneForm.allowedDurations.filter((d: number) => d !== mins);
+                                                                
+                                                                if (newDurations.length > 0) {
+                                                                    setZoneForm(p => ({ ...p, allowedDurations: newDurations }));
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                        />
+                                                        <span className="text-sm text-gray-700">{mins === 90 ? '1.5h' : `${mins/60}h`}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => createZone()} disabled={creatingZone || !zoneForm.name} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-2">{creatingZone && <Loader2 size={14} className="animate-spin" />} Creează zona</button>
+                                    
+                                    <div className="flex gap-2 pt-2">
+                                        <button 
+                                            onClick={() => {
+                                                setShowCreateZone(false);
+                                                setEditingZoneId(null);
+                                            }} 
+                                            className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                                        >
+                                            Anulează
+                                        </button>
+                                        <button 
+                                            onClick={() => saveZone()} 
+                                            disabled={savingZone || !zoneForm.name || zoneForm.allowedDurations.length === 0} 
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+                                        >
+                                            {savingZone && <Loader2 size={14} className="animate-spin" />} 
+                                            {editingZoneId ? 'Salvează' : 'Creează'}
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -4,6 +4,7 @@ import com.planify.backend.dto.request.CreateBookingRequest;
 import com.planify.backend.dto.request.CreateZoneRequest;
 import com.planify.backend.dto.response.BookingResponse;
 import com.planify.backend.dto.response.SlotResponse;
+import com.planify.backend.dto.response.ZoneSummaryResponse;
 import com.planify.backend.entity.VenueZone;
 import com.planify.backend.security.JwtService;
 import com.planify.backend.service.CalendarService;
@@ -29,21 +30,20 @@ public class CalendarController {
         this.jwtService = jwtService;
     }
 
-    // PUBLICE
+    // --- PUBLICE ---
 
-    // Sloturi disponibile pentru o zona si o data
+    // Sloturi disponibile pentru o zona, data si durată
     @GetMapping("/api/locations/public/zones/{zoneId}/slots")
     public ResponseEntity<List<SlotResponse>> getSlots(
             @PathVariable Long zoneId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(defaultValue = "60") Integer duration) { // S-a adaugat durata!
         return ResponseEntity.ok(
-                calendarService.getAvailableSlots(zoneId, date));
+                calendarService.getAvailableSlots(zoneId, date, duration));
     }
 
-    // USER
+    // --- USER ---
 
-    // Creare rezervare
     @PostMapping("/api/user/bookings")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<?> createBooking(
@@ -59,7 +59,6 @@ public class CalendarController {
         }
     }
 
-    // Anulare rezervare
     @DeleteMapping("/api/user/bookings/{bookingId}")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<?> cancelBooking(
@@ -75,7 +74,6 @@ public class CalendarController {
         }
     }
 
-    // Rezervarile mele
     @GetMapping("/api/user/bookings")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<List<BookingResponse>> getMyBookings(
@@ -84,9 +82,15 @@ public class CalendarController {
         return ResponseEntity.ok(calendarService.getUserBookings(userId));
     }
 
-    // LOCATION
+    // --- LOCATION ---
 
-    // Creare zona
+    @GetMapping("/api/location/zones")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<List<ZoneSummaryResponse>> getZones(HttpServletRequest httpRequest) {
+        Long locationId = extractLocationId(httpRequest);
+        return ResponseEntity.ok(calendarService.getLocationZones(locationId));
+    }
+
     @PostMapping("/api/location/zones")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> createZone(
@@ -103,7 +107,35 @@ public class CalendarController {
         }
     }
 
-    // Agenda zilnica
+    @PutMapping("/api/location/zones/{zoneId}")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> updateZone(
+            @PathVariable Long zoneId,
+            @Valid @RequestBody CreateZoneRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            Long locationId = extractLocationId(httpRequest);
+            calendarService.updateZone(zoneId, request, locationId);
+            return ResponseEntity.ok("Zona a fost actualizată cu succes");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/api/location/zones/{zoneId}")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> deleteZone(
+            @PathVariable Long zoneId,
+            HttpServletRequest httpRequest) {
+        try {
+            Long locationId = extractLocationId(httpRequest);
+            calendarService.deleteZone(zoneId, locationId);
+            return ResponseEntity.ok("Zona a fost ștearsă");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/api/location/agenda")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<List<BookingResponse>> getAgenda(
@@ -115,7 +147,6 @@ public class CalendarController {
                 calendarService.getLocationAgenda(locationId, date));
     }
 
-    // Marcare no-show
     @PostMapping("/api/location/bookings/{bookingId}/no-show")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> markNoShow(
@@ -130,6 +161,14 @@ public class CalendarController {
         }
     }
 
+    @GetMapping("/api/location/bookings")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<List<BookingResponse>> getLocationBookings(
+            HttpServletRequest httpRequest) {
+        Long locationId = extractLocationId(httpRequest);
+        return ResponseEntity.ok(calendarService.getLocationBookings(locationId));
+    }
+
     // Helper: extrage userId din JWT
     private Long extractUserId(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
@@ -141,14 +180,5 @@ public class CalendarController {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
-    }
-
-    // Toate rezervarile (istoric) pentru o locatie
-    @GetMapping("/api/location/bookings")
-    @PreAuthorize("hasRole('LOCATION')")
-    public ResponseEntity<List<BookingResponse>> getLocationBookings(
-            HttpServletRequest httpRequest) {
-        Long locationId = extractLocationId(httpRequest);
-        return ResponseEntity.ok(calendarService.getLocationBookings(locationId));
     }
 }

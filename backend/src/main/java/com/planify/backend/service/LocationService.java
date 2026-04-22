@@ -159,8 +159,9 @@ public class LocationService {
                         z.getName(),
                         z.getCapacity(),
                         z.getMaxPersons(),
+                        // Folosim noul helper method din ZoneConfig:
                         z.getConfig() != null ?
-                                z.getConfig().getBookingDurationMinutes() : null,
+                                z.getConfig().getAllowedDurationsList() : List.of(60),
                         z.getConfig() != null ?
                                 z.getConfig().getOpenTime().toString() : null,
                         z.getConfig() != null ?

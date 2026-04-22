@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Am adăugat useQueryClient aici
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { format, addDays } from 'date-fns';
@@ -17,25 +17,41 @@ interface Props {
 export function BookingCalendar({ location }: Props) {
     const { user } = useAuth();
     const router = useRouter();
-    const queryClient = useQueryClient(); // Am instanțiat queryClient
+    const queryClient = useQueryClient();
 
     const [selectedZone, setSelectedZone] = useState(
         location.zones?.[0]?.id || null
     );
+    
+    const currentZone = location.zones?.find(z => z.id === selectedZone);
+    
     const [selectedDate, setSelectedDate] = useState(
         format(addDays(new Date(), 1), 'yyyy-MM-dd')
+    );
+    // Adăugăm state pentru durata selectată (implicit prima opțiune din zonă sau 60)
+    const [selectedDuration, setSelectedDuration] = useState<number>(
+        currentZone?.allowedDurations?.[0] || 60
     );
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [groupSize, setGroupSize] = useState(2);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
+    // Când se schimbă zona, resetăm durata la prima valoare disponibilă a noii zone
+    useEffect(() => {
+        if (currentZone && currentZone.allowedDurations?.length > 0) {
+            setSelectedDuration(currentZone.allowedDurations[0]);
+        }
+    }, [selectedZone, currentZone]);
+
     const { data: slots, isLoading: slotsLoading } = useQuery({
-        queryKey: ['slots', selectedZone, selectedDate],
+        // Adăugăm duration în queryKey pentru a re-fetch-ui sloturile când se schimbă durata
+        queryKey: ['slots', selectedZone, selectedDate, selectedDuration],
         queryFn: async () => {
             if (!selectedZone) return [];
+            // Adăugăm &duration=... în URL
             const res = await api.get(
-                `/api/locations/public/zones/${selectedZone}/slots?date=${selectedDate}`
+                `/api/locations/public/zones/${selectedZone}/slots?date=${selectedDate}&duration=${selectedDuration}`
             );
             return res.data as Slot[];
         },
@@ -48,6 +64,7 @@ export function BookingCalendar({ location }: Props) {
                 zoneId: selectedZone,
                 bookingDate: selectedDate,
                 startTime: selectedSlot,
+                duration: selectedDuration, // Trimitem durata selectată către backend
                 groupSize,
             });
         },
@@ -56,12 +73,8 @@ export function BookingCalendar({ location }: Props) {
             setSelectedSlot(null);
             setError('');
 
-            // INVALIDEAZĂ CACHE-UL
-            // 1. Reîncarcă rezervările utilizatorului pentru dashboard
             queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
-            // 2. Reîncarcă agenda locației 
             queryClient.invalidateQueries({ queryKey: ['agenda'] });
-            // 3. Reîncarcă sloturile curente pentru a actualiza locurile libere disponibile live
             queryClient.invalidateQueries({ queryKey: ['slots', selectedZone, selectedDate] });
         },
         onError: (err: any) => {
@@ -85,7 +98,6 @@ export function BookingCalendar({ location }: Props) {
         createBooking();
     };
 
-    // Generează datele disponibile (azi + 30 zile)
     const availableDates = Array.from({ length: 30 }, (_, i) =>
         format(addDays(new Date(), i + 1), 'yyyy-MM-dd')
     );
@@ -141,17 +153,49 @@ export function BookingCalendar({ location }: Props) {
                 </select>
             </div>
 
+            {/* Selector Durată (Nou) */}
+            {currentZone?.allowedDurations && currentZone.allowedDurations.length > 0 && (
+                <div>
+                    <label className="text-xs font-medium text-gray-600 mb-2 block flex items-center gap-1">
+                        <Clock size={12} />
+                        Durata vizitei
+                    </label>
+                    <div className="flex gap-2">
+                        {currentZone.allowedDurations.map((dur) => (
+                            <button
+                                key={dur}
+                                onClick={() => {
+                                    setSelectedDuration(dur);
+                                    setSelectedSlot(null); // Resetăm slotul selectat când se schimbă durata
+                                }}
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    selectedDuration === dur 
+                                    ? 'bg-indigo-600 text-white shadow-md border-transparent' 
+                                    : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
+                                }`}
+                            >
+                                {dur === 90 ? '1.5h' : `${dur/60}h`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Sloturi orare */}
             <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block flex items-center gap-1">
                     <Clock size={12} />
-                    Interval orar
+                    Interval orar start
                 </label>
 
                 {slotsLoading ? (
                     <div className="flex justify-center py-4">
                         <Loader2 className="animate-spin text-indigo-400" size={20} />
                     </div>
+                ) : slots?.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-gray-100">
+                        Nu există sloturi disponibile pentru această durată.
+                    </p>
                 ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                         {slots?.map((slot) => (
@@ -170,8 +214,8 @@ export function BookingCalendar({ location }: Props) {
                             >
                                 {slot.startTime.substring(0, 5)}
                                 {slot.disponibil && (
-                                    <span className="block text-xs opacity-70">
-                                        {slot.locuriLibere} loc.
+                                    <span className="block text-xs opacity-70 mt-0.5">
+                                        {slot.locuriLibere} locuri
                                     </span>
                                 )}
                             </button>
@@ -189,14 +233,14 @@ export function BookingCalendar({ location }: Props) {
                 <input
                     type="number"
                     min={1}
-                    max={location.zones?.find(z => z.id === selectedZone)?.maxPersons || 50}
+                    max={currentZone?.maxPersons || 50}
                     value={groupSize}
                     onChange={(e) => setGroupSize(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 />
             </div>
 
-            {/* Mesaje */}
+            {/* Mesaje eroare/succes */}
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
                     {error}
@@ -212,7 +256,7 @@ export function BookingCalendar({ location }: Props) {
             <button
                 onClick={handleBook}
                 disabled={isPending || !selectedSlot}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
             >
                 {isPending && <Loader2 size={16} className="animate-spin" />}
                 {user ? 'Rezervă acum' : 'Autentifică-te pentru a rezerva'}

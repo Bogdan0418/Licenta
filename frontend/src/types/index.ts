@@ -47,7 +47,7 @@ export interface Zone {
     name: string;
     capacity: number;
     maxPersons: number;
-    bookingDurationMinutes: number;
+    allowedDurations: number[]; 
     openTime: string;
     closeTime: string;
 }

@@ -1,6 +1,7 @@
 package com.planify.backend.dto.request;
 
 import jakarta.validation.constraints.*;
+import java.util.List;
 
 public record CreateZoneRequest(
 
@@ -13,8 +14,9 @@ public record CreateZoneRequest(
         @Min(value = 1, message = "Numărul minim de persoane este 1")
         int maxPersons,
 
-        @NotNull
-        Integer bookingDurationMinutes,  // 60, 90 sau 120
+        @NotNull(message = "Trebuie specificată cel puțin o durată")
+        @Size(min = 1, message = "Trebuie specificată cel puțin o durată")
+        List<Integer> allowedDurations,  // [60, 90, 120]
 
         @NotBlank
         String openTime,   // "10:00"
