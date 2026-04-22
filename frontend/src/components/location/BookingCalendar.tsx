@@ -28,7 +28,7 @@ export function BookingCalendar({ location }: Props) {
     const [selectedDate, setSelectedDate] = useState(
         format(addDays(new Date(), 1), 'yyyy-MM-dd')
     );
-    // Adăugăm state pentru durata selectată (implicit prima opțiune din zonă sau 60)
+    
     const [selectedDuration, setSelectedDuration] = useState<number>(
         currentZone?.allowedDurations?.[0] || 60
     );
@@ -45,11 +45,9 @@ export function BookingCalendar({ location }: Props) {
     }, [selectedZone, currentZone]);
 
     const { data: slots, isLoading: slotsLoading } = useQuery({
-        // Adăugăm duration în queryKey pentru a re-fetch-ui sloturile când se schimbă durata
         queryKey: ['slots', selectedZone, selectedDate, selectedDuration],
         queryFn: async () => {
             if (!selectedZone) return [];
-            // Adăugăm &duration=... în URL
             const res = await api.get(
                 `/api/locations/public/zones/${selectedZone}/slots?date=${selectedDate}&duration=${selectedDuration}`
             );
@@ -64,7 +62,7 @@ export function BookingCalendar({ location }: Props) {
                 zoneId: selectedZone,
                 bookingDate: selectedDate,
                 startTime: selectedSlot,
-                duration: selectedDuration, // Trimitem durata selectată către backend
+                duration: selectedDuration, 
                 groupSize,
             });
         },
@@ -153,7 +151,7 @@ export function BookingCalendar({ location }: Props) {
                 </select>
             </div>
 
-            {/* Selector Durată (Nou) */}
+            {/* Selector Durată */}
             {currentZone?.allowedDurations && currentZone.allowedDurations.length > 0 && (
                 <div>
                     <label className="text-xs font-medium text-gray-600 mb-2 block flex items-center gap-1">
@@ -166,7 +164,7 @@ export function BookingCalendar({ location }: Props) {
                                 key={dur}
                                 onClick={() => {
                                     setSelectedDuration(dur);
-                                    setSelectedSlot(null); // Resetăm slotul selectat când se schimbă durata
+                                    setSelectedSlot(null); 
                                 }}
                                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
                                     selectedDuration === dur 
@@ -197,12 +195,11 @@ export function BookingCalendar({ location }: Props) {
                         Nu există sloturi disponibile pentru această durată.
                     </p>
                 ) : (
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                         {slots?.map((slot) => (
                             <button
                                 key={slot.startTime}
-                                onClick={() => slot.disponibil &&
-                                    setSelectedSlot(slot.startTime)}
+                                onClick={() => slot.disponibil && setSelectedSlot(slot.startTime)}
                                 disabled={!slot.disponibil}
                                 className={`py-2 px-2 rounded-lg text-xs font-medium border transition-colors ${
                                     selectedSlot === slot.startTime
@@ -252,14 +249,22 @@ export function BookingCalendar({ location }: Props) {
                 </div>
             )}
 
-            {/* Buton rezervă */}
+            {/* Buton rezervă - Modificat pentru a bloca locațiile/adminii */}
             <button
                 onClick={handleBook}
-                disabled={isPending || !selectedSlot}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                disabled={isPending || !selectedSlot || (user !== null && user.role !== 'USER')}
+                className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
+                    user && user.role !== 'USER' 
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white'
+                }`}
             >
                 {isPending && <Loader2 size={16} className="animate-spin" />}
-                {user ? 'Rezervă acum' : 'Autentifică-te pentru a rezerva'}
+                {!user 
+                    ? 'Autentifică-te pentru a rezerva' 
+                    : user.role !== 'USER' 
+                        ? 'Doar clienții pot face rezervări' 
+                        : 'Rezervă acum'}
             </button>
         </div>
     );
