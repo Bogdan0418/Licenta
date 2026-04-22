@@ -142,4 +142,13 @@ public class CalendarController {
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
     }
+
+    // Toate rezervarile (istoric) pentru o locatie
+    @GetMapping("/api/location/bookings")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<List<BookingResponse>> getLocationBookings(
+            HttpServletRequest httpRequest) {
+        Long locationId = extractLocationId(httpRequest);
+        return ResponseEntity.ok(calendarService.getLocationBookings(locationId));
+    }
 }

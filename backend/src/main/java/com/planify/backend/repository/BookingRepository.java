@@ -13,6 +13,8 @@ import java.util.List;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+    // Toate rezervarile unei locatii (pentru istoric)
+    List<Booking> findByZoneLocationIdOrderByBookingDateDescStartTimeDesc(Long locationId);
 
     // Toate rezervarile unei zone pentru o zi - folosit la generarea sloturilor
     @Query("""
@@ -28,7 +30,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     // Verificare suprapunere - pentru validarea la creare rezervare
     @Query("""
-        SELECT COUNT(b) FROM Booking b
+        SELECT COALESCE(SUM(b.groupSize), 0) FROM Booking b
         WHERE b.zone.id = :zoneId
           AND b.bookingDate = :date
           AND b.status = 'CONFIRMED'

@@ -85,4 +85,35 @@ public class ReviewController {
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
     }
+
+    @GetMapping("/api/user/reviews/received")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<ReviewResponse>> getReceivedReviews(HttpServletRequest httpRequest) {
+        Long userId = extractId(httpRequest);
+        return ResponseEntity.ok(reviewService.getUserReceivedReviews(userId));
+    }
+
+    @GetMapping("/api/user/reviews/given")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<ReviewResponse>> getGivenReviews(HttpServletRequest httpRequest) {
+        Long userId = extractId(httpRequest);
+        return ResponseEntity.ok(reviewService.getUserGivenReviews(userId));
+    }
+
+    // Review-urile pe care locatia le-a PRIMIT
+    @GetMapping("/api/location/reviews/received")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<List<ReviewResponse>> getLocationReceivedReviews(HttpServletRequest httpRequest) {
+        Long locationId = extractId(httpRequest);
+        // Putem folosi direct metoda existenta
+        return ResponseEntity.ok(reviewService.getLocationReviews(locationId));
+    }
+
+    // Review-urile pe care locatia le-a OFERIT clienților
+    @GetMapping("/api/location/reviews/given")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<List<ReviewResponse>> getLocationGivenReviews(HttpServletRequest httpRequest) {
+        Long locationId = extractId(httpRequest);
+        return ResponseEntity.ok(reviewService.getLocationGivenReviews(locationId));
+    }
 }

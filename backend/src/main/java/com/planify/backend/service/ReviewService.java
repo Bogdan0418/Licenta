@@ -32,32 +32,19 @@ public class ReviewService {
         this.locationRepository = locationRepository;
     }
 
-    // Utilizatorul recenzeaza locatia
     @Transactional
-    public ReviewResponse addUserReview(CreateReviewRequest req,
-                                        Long userId) {
-
+    public ReviewResponse addUserReview(CreateReviewRequest req, Long userId) {
         Booking booking = bookingRepository.findById(req.bookingId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Rezervarea nu a fost găsită"));
+                .orElseThrow(() -> new IllegalArgumentException("Rezervarea nu a fost găsită"));
 
-        // Verifica ca rezervarea ii apartine utilizatorului
         if (!booking.getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException(
-                    "Nu poți lăsa review pentru această rezervare");
+            throw new IllegalArgumentException("Nu poți lăsa review pentru această rezervare");
         }
-
-        // Rezervarea trebuie sa fie COMPLETED
         if (booking.getStatus() != BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException(
-                    "Poți lăsa review doar după finalizarea rezervării");
+            throw new IllegalArgumentException("Poți lăsa review doar după finalizarea rezervării");
         }
-
-        // Nu poti da review de doua ori
-        if (reviewRepository.existsByBookingIdAndReviewerType(
-                req.bookingId(), ReviewerType.USER)) {
-            throw new IllegalArgumentException(
-                    "Ai lăsat deja un review pentru această rezervare");
+        if (reviewRepository.existsByBookingIdAndReviewerType(req.bookingId(), ReviewerType.USER)) {
+            throw new IllegalArgumentException("Ai lăsat deja un review pentru această rezervare");
         }
 
         Review review = new Review();
@@ -67,40 +54,24 @@ public class ReviewService {
         review.setComment(req.comment());
 
         Review saved = reviewRepository.save(review);
-
-        // Recalculeaza ratingul locatiei
-        recalculateLocationRating(
-                booking.getZone().getLocation().getId());
+        recalculateLocationRating(booking.getZone().getLocation().getId());
 
         return toResponse(saved);
     }
 
-    // Locatia recenzeaza utilizatorul
     @Transactional
-    public ReviewResponse addLocationReview(CreateReviewRequest req,
-                                            Long locationId) {
-
+    public ReviewResponse addLocationReview(CreateReviewRequest req, Long locationId) {
         Booking booking = bookingRepository.findById(req.bookingId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Rezervarea nu a fost găsită"));
+                .orElseThrow(() -> new IllegalArgumentException("Rezervarea nu a fost găsită"));
 
-        // Verifica ca rezervarea este a acestei locatii
         if (!booking.getZone().getLocation().getId().equals(locationId)) {
-            throw new IllegalArgumentException(
-                    "Nu poți lăsa review pentru această rezervare");
+            throw new IllegalArgumentException("Nu poți lăsa review pentru această rezervare");
         }
-
-        // Rezervarea trebuie sa fie COMPLETED
         if (booking.getStatus() != BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException(
-                    "Poți lăsa review doar după finalizarea rezervării");
+            throw new IllegalArgumentException("Poți lăsa review doar după finalizarea rezervării");
         }
-
-        // Nu poti da review de doua ori
-        if (reviewRepository.existsByBookingIdAndReviewerType(
-                req.bookingId(), ReviewerType.LOCATION)) {
-            throw new IllegalArgumentException(
-                    "Ai lăsat deja un rating pentru acest client");
+        if (reviewRepository.existsByBookingIdAndReviewerType(req.bookingId(), ReviewerType.LOCATION)) {
+            throw new IllegalArgumentException("Ai lăsat deja un rating pentru acest client");
         }
 
         Review review = new Review();
@@ -110,75 +81,74 @@ public class ReviewService {
         review.setComment(req.comment());
 
         Review saved = reviewRepository.save(review);
-
-        // Recalculeaza ratingul utilizatorului
         recalculateUserRating(booking.getUser().getId());
 
         return toResponse(saved);
     }
 
-    // Vizualizare review-uri ale unei locatii (public)
     @Transactional(readOnly = true)
     public List<ReviewResponse> getLocationReviews(Long locationId) {
         return reviewRepository.findReviewsForLocation(locationId)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // Raportare review inadecvat
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getUserReceivedReviews(Long userId) {
+        return reviewRepository.findReviewsForUser(userId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getUserGivenReviews(Long userId) {
+        return reviewRepository.findReviewsGivenByUser(userId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getLocationGivenReviews(Long locationId) {
+        return reviewRepository.findReviewsGivenByLocation(locationId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     @Transactional
     public void reportReview(Long reviewId, Long reporterId) {
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Review-ul nu a fost găsit"));
+                .orElseThrow(() -> new IllegalArgumentException("Review-ul nu a fost găsit"));
         review.setIsReported(true);
         reviewRepository.save(review);
     }
 
-    // Recalculare rating locatie
     private void recalculateLocationRating(Long locationId) {
-        Double avg = reviewRepository
-                .calculateAverageRatingForLocation(locationId);
+        Double avg = reviewRepository.calculateAverageRatingForLocation(locationId);
         int count = reviewRepository.countReviewsForLocation(locationId);
 
-        Location location = locationRepository.findById(locationId)
-                .orElseThrow();
-
+        Location location = locationRepository.findById(locationId).orElseThrow();
         if (avg != null) {
-            location.setRating(
-                    BigDecimal.valueOf(avg)
-                            .setScale(2, RoundingMode.HALF_UP));
+            location.setRating(BigDecimal.valueOf(avg).setScale(2, RoundingMode.HALF_UP));
         }
         location.setRatingCount(count);
         locationRepository.save(location);
     }
 
-    // Recalculare rating utilizator
     private void recalculateUserRating(Long userId) {
-        Double avg = reviewRepository
-                .calculateAverageRatingForUser(userId);
+        Double avg = reviewRepository.calculateAverageRatingForUser(userId);
+        int count = reviewRepository.countReviewsForUser(userId);
 
         User user = userRepository.findById(userId).orElseThrow();
-
         if (avg != null) {
-            user.setRating(
-                    BigDecimal.valueOf(avg)
-                            .setScale(2, RoundingMode.HALF_UP));
+            user.setRating(BigDecimal.valueOf(avg).setScale(2, RoundingMode.HALF_UP));
         }
+        user.setRatingCount(count);
         userRepository.save(user);
     }
 
-    // Helper: Review -> ReviewResponse
     private ReviewResponse toResponse(Review r) {
         String reviewerName;
-
         if (r.getReviewerType() == ReviewerType.USER) {
             User user = r.getBooking().getUser();
             reviewerName = user.getFirstName() + " " + user.getLastName();
         } else {
-            reviewerName = r.getBooking().getZone()
-                    .getLocation().getDisplayName();
+            reviewerName = r.getBooking().getZone().getLocation().getDisplayName();
         }
 
         return new ReviewResponse(

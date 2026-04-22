@@ -13,11 +13,8 @@ import java.util.Optional;
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
-    // Verifica daca exista deja un review pentru aceasta rezervare si tip
-    boolean existsByBookingIdAndReviewerType(
-            Long bookingId, ReviewerType reviewerType);
+    boolean existsByBookingIdAndReviewerType(Long bookingId, ReviewerType reviewerType);
 
-    // Review-urile primite de o locatie (scrise de utilizatori)
     @Query("""
     SELECT r FROM Review r
     JOIN FETCH r.booking b
@@ -31,7 +28,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     """)
     List<Review> findReviewsForLocation(@Param("locationId") Long locationId);
 
-    // Review-urile primite de un utilizator (scrise de locatii)
     @Query("""
     SELECT r FROM Review r
     JOIN FETCH r.booking b
@@ -44,17 +40,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     """)
     List<Review> findReviewsForUser(@Param("userId") Long userId);
 
-    // Rating mediu pentru o locatie
     @Query("""
         SELECT AVG(r.rating) FROM Review r
         WHERE r.booking.zone.location.id = :locationId
           AND r.reviewerType = 'USER'
           AND r.isReported = false
         """)
-    Double calculateAverageRatingForLocation(
-            @Param("locationId") Long locationId);
+    Double calculateAverageRatingForLocation(@Param("locationId") Long locationId);
 
-    // Rating mediu pentru un utilizator
     @Query("""
         SELECT AVG(r.rating) FROM Review r
         WHERE r.booking.user.id = :userId
@@ -62,7 +55,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         """)
     Double calculateAverageRatingForUser(@Param("userId") Long userId);
 
-    // Numarul de review-uri pentru o locatie
     @Query("""
         SELECT COUNT(r) FROM Review r
         WHERE r.booking.zone.location.id = :locationId
@@ -71,10 +63,37 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         """)
     int countReviewsForLocation(@Param("locationId") Long locationId);
 
-    // Review-uri raportate - pentru admin
+    @Query("""
+        SELECT COUNT(r) FROM Review r
+        WHERE r.booking.user.id = :userId
+          AND r.reviewerType = 'LOCATION'
+        """)
+    int countReviewsForUser(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT r FROM Review r
+        JOIN FETCH r.booking b
+        JOIN FETCH b.zone z
+        JOIN FETCH z.location l
+        WHERE b.user.id = :userId
+          AND r.reviewerType = 'USER'
+        ORDER BY r.createdAt DESC
+        """)
+    List<Review> findReviewsGivenByUser(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT r FROM Review r
+        JOIN FETCH r.booking b
+        JOIN FETCH b.user u
+        JOIN FETCH b.zone z
+        JOIN FETCH z.location l
+        WHERE l.id = :locationId
+          AND r.reviewerType = 'LOCATION'
+        ORDER BY r.createdAt DESC
+        """)
+    List<Review> findReviewsGivenByLocation(@Param("locationId") Long locationId);
+
     List<Review> findByIsReportedTrue();
 
-    // Gaseste review-ul unui booking specific
-    Optional<Review> findByBookingIdAndReviewerType(
-            Long bookingId, ReviewerType reviewerType);
+    Optional<Review> findByBookingIdAndReviewerType(Long bookingId, ReviewerType reviewerType);
 }

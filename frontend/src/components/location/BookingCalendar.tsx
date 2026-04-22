@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Am adăugat useQueryClient aici
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { format, addDays } from 'date-fns';
@@ -17,6 +17,8 @@ interface Props {
 export function BookingCalendar({ location }: Props) {
     const { user } = useAuth();
     const router = useRouter();
+    const queryClient = useQueryClient(); // Am instanțiat queryClient
+
     const [selectedZone, setSelectedZone] = useState(
         location.zones?.[0]?.id || null
     );
@@ -53,6 +55,14 @@ export function BookingCalendar({ location }: Props) {
             setSuccess('Rezervare confirmată! Verifică email-ul pentru detalii.');
             setSelectedSlot(null);
             setError('');
+
+            // INVALIDEAZĂ CACHE-UL
+            // 1. Reîncarcă rezervările utilizatorului pentru dashboard
+            queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+            // 2. Reîncarcă agenda locației 
+            queryClient.invalidateQueries({ queryKey: ['agenda'] });
+            // 3. Reîncarcă sloturile curente pentru a actualiza locurile libere disponibile live
+            queryClient.invalidateQueries({ queryKey: ['slots', selectedZone, selectedDate] });
         },
         onError: (err: any) => {
             setError(err.response?.data || 'Eroare la rezervare');
