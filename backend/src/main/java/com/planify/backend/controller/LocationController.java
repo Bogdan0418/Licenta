@@ -3,7 +3,6 @@ package com.planify.backend.controller;
 import com.planify.backend.dto.response.LocationDetailResponse;
 import com.planify.backend.dto.response.LocationSummaryResponse;
 import com.planify.backend.entity.Location;
-import com.planify.backend.entity.enums.Facility;
 import com.planify.backend.entity.enums.LocationType;
 import com.planify.backend.repository.LocationFacilityRepository;
 import com.planify.backend.repository.LocationPhotoRepository;
@@ -41,8 +40,6 @@ public class LocationController {
         this.facilityRepository = facilityRepository;
     }
 
-    // --- RUTE PUBLICE ---
-
     @GetMapping("/api/locations/public/search")
     public ResponseEntity<List<LocationSummaryResponse>> search(
             @RequestParam(required = false) LocationType type,
@@ -58,31 +55,25 @@ public class LocationController {
         return ResponseEntity.ok(locationService.getLocationDetail(id, null));
     }
 
-
-    // --- RUTE LOCATION (necesită autentificare) ---
-
     @PutMapping("/api/location/status/toggle")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> toggleStatus() {
         return ResponseEntity.ok("În dezvoltare");
     }
 
-    // Obține profilul propriu pentru Dashboard (cu poze și descriere)
-    // Obține profilul propriu pentru Dashboard (cu poze și descriere)
     @GetMapping("/api/location/profile")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
         Long locationId = extractLocationId(request);
         Location location = locationRepository.findById(locationId).orElseThrow();
 
-        // REZOLVAREA E AICI: Am forțat Map.<String, Object>of(...)
         List<Map<String, Object>> photos = photoRepository.findByLocationIdOrderByDisplayOrderAsc(locationId)
                 .stream()
                 .map(p -> Map.<String, Object>of("id", p.getId(), "url", "/uploads/" + p.getFilePath()))
                 .collect(Collectors.toList());
 
         List<String> facilities = facilityRepository.findByLocationId(locationId).stream()
-                .map(lf -> lf.getFacility().name())
+                .map(lf -> lf.getFacility()) // Acum ia direct stringul
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(Map.of(
@@ -96,7 +87,6 @@ public class LocationController {
         ));
     }
 
-    // Încarcă o poză nouă
     @PostMapping("/api/location/photos")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> uploadPhoto(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
@@ -109,7 +99,6 @@ public class LocationController {
         }
     }
 
-    // Șterge o poză existentă
     @DeleteMapping("/api/location/photos/{photoId}")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> deletePhoto(@PathVariable Long photoId, HttpServletRequest request) {
@@ -122,7 +111,6 @@ public class LocationController {
         }
     }
 
-    // Actualizează descrierea (și opțional facilitățile)
     @PutMapping("/api/location/profile")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, Object> updates, HttpServletRequest request) {
@@ -130,10 +118,9 @@ public class LocationController {
             Long locationId = extractLocationId(request);
             String description = (String) updates.get("description");
 
-            List<Facility> facilities = null;
+            List<String> facilities = null;
             if (updates.containsKey("facilities")) {
-                List<String> facilityStrings = (List<String>) updates.get("facilities");
-                facilities = facilityStrings.stream().map(Facility::valueOf).collect(Collectors.toList());
+                facilities = (List<String>) updates.get("facilities"); // Preluam direct string-urile
             }
 
             locationService.updateProfile(locationId, description, facilities);
@@ -143,7 +130,6 @@ public class LocationController {
         }
     }
 
-    // Metodă ajutătoare pentru extragerea ID-ului din token
     private Long extractLocationId(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);

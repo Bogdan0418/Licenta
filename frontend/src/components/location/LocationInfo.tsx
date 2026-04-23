@@ -1,5 +1,6 @@
-import { Star, MapPin, Phone, Clock, Wifi, PawPrint, Car } from 'lucide-react';
+import { Star, MapPin, Phone, Clock, Wifi, PawPrint, Car, Check } from 'lucide-react';
 import { LocationDetail } from '@/types';
+import { facilityLabels } from '@/lib/utils';
 
 const facilityIcons: Record<string, any> = {
     WIFI: Wifi,
@@ -60,18 +61,23 @@ export function LocationInfo({ location }: Props) {
             {location.facilities && location.facilities.length > 0 && (
                 <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                        Facilități
+                        Facilități disponibile
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {location.facilities.map((f) => {
-                            const Icon = facilityIcons[f];
+                            // Căutăm un icon specific. Dacă nu găsim, folosim o bifă standard
+                            const Icon = facilityIcons[f] || Check; 
+                            
+                            // Dacă există în facilityLabels, punem traducerea, altfel lăsăm textul custom
+                            const displayLabel = facilityLabels[f] || f; 
+
                             return (
                                 <span
                                     key={f}
-                                    className="flex items-center gap-1.5 text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full"
+                                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border bg-gray-50 text-gray-700 border-gray-100"
                                 >
-                                    {Icon && <Icon size={12} />}
-                                    {f.replace(/_/g, ' ')}
+                                    <Icon size={12} className="text-gray-500" />
+                                    {displayLabel}
                                 </span>
                             );
                         })}

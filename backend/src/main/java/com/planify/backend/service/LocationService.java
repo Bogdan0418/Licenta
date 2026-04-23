@@ -7,7 +7,6 @@ import com.planify.backend.dto.response.ZoneSummaryResponse;
 import com.planify.backend.entity.Location;
 import com.planify.backend.entity.LocationFacility;
 import com.planify.backend.entity.LocationPhoto;
-import com.planify.backend.entity.enums.Facility;
 import com.planify.backend.entity.enums.LocationStatus;
 import com.planify.backend.entity.enums.LocationType;
 import com.planify.backend.repository.*;
@@ -48,7 +47,6 @@ public class LocationService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // Inregistrare locatie noua
     @Transactional
     public Location registerLocation(RegisterLocationRequest req) {
         if (locationRepository.existsByOwnerEmail(req.ownerEmail())) {
@@ -87,7 +85,7 @@ public class LocationService {
         Location saved = locationRepository.save(location);
 
         if (req.facilities() != null) {
-            for (Facility facility : req.facilities()) {
+            for (String facility : req.facilities()) {
                 LocationFacility lf = new LocationFacility();
                 lf.setLocation(saved);
                 lf.setFacility(facility);
@@ -97,7 +95,6 @@ public class LocationService {
         return saved;
     }
 
-    // Cautare locatii cu filtre
     public List<LocationSummaryResponse> searchLocations(LocationType type, String searchTerm, Double lat, Double lng, Double radiusKm) {
         List<Location> locations;
         if (lat != null && lng != null) {
@@ -113,7 +110,6 @@ public class LocationService {
         return locations.stream().map(l -> toSummary(l, lat, lng)).collect(Collectors.toList());
     }
 
-    // Detalii locatie completa
     public LocationDetailResponse getLocationDetail(Long id, Long userId) {
         Location location = locationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită"));
@@ -122,7 +118,7 @@ public class LocationService {
                 .map(p -> "/uploads/" + p.getFilePath())
                 .collect(Collectors.toList());
 
-        List<Facility> facilities = facilityRepository.findByLocationId(id).stream()
+        List<String> facilities = facilityRepository.findByLocationId(id).stream()
                 .map(LocationFacility::getFacility)
                 .collect(Collectors.toList());
 
@@ -149,7 +145,7 @@ public class LocationService {
                 .findFirst().map(p -> "/uploads/" + p.getFilePath()).orElse(null);
 
         List<String> facilityNames = facilityRepository.findByLocationId(l.getId()).stream()
-                .map(f -> f.getFacility().name()).collect(Collectors.toList());
+                .map(LocationFacility::getFacility).collect(Collectors.toList());
 
         Double distance = null;
         if (userLat != null && userLng != null && l.getLatitude() != null && l.getLongitude() != null) {
@@ -172,8 +168,6 @@ public class LocationService {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return Math.round(R * c * 10.0) / 10.0;
     }
-
-    // --- METODE NOI PENTRU GESTIONAREA PROFILULUI SI A POZELOR ---
 
     @Transactional
     public LocationPhoto uploadPhoto(Long locationId, MultipartFile file) throws Exception {
@@ -214,7 +208,7 @@ public class LocationService {
     }
 
     @Transactional
-    public void updateProfile(Long locationId, String description, List<Facility> facilities) {
+    public void updateProfile(Long locationId, String description, List<String> facilities) {
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită"));
 
@@ -222,7 +216,7 @@ public class LocationService {
 
         if (facilities != null && !facilities.isEmpty()) {
             facilityRepository.deleteByLocationId(locationId);
-            for (Facility f : facilities) {
+            for (String f : facilities) {
                 LocationFacility lf = new LocationFacility();
                 lf.setLocation(location);
                 lf.setFacility(f);

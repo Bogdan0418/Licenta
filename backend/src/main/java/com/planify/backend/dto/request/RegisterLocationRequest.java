@@ -1,6 +1,5 @@
 package com.planify.backend.dto.request;
 
-import com.planify.backend.entity.enums.Facility;
 import com.planify.backend.entity.enums.LocationType;
 import jakarta.validation.constraints.*;
 
@@ -28,7 +27,7 @@ public record RegisterLocationRequest(
         String facebookUrl,
         String tiktokUrl,
 
-        List<Facility> facilities,
+        List<String> facilities, // Modificat aici
 
         // Date cont
         @NotBlank @Email String ownerEmail,

@@ -1,6 +1,5 @@
 package com.planify.backend.dto.response;
 
-import com.planify.backend.entity.enums.Facility;
 import com.planify.backend.entity.enums.LocationType;
 
 import java.math.BigDecimal;
@@ -24,7 +23,7 @@ public record LocationDetailResponse(
         BigDecimal rating,
         Integer ratingCount,
         List<String> photoUrls,
-        List<Facility> facilities,
+        List<String> facilities, // Modificat aici
         List<ZoneSummaryResponse> zones,
-        boolean isFavorite  // true daca utilizatorul curent a salvat locatia
+        boolean isFavorite
 ) {}

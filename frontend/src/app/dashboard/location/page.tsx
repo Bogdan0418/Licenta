@@ -38,6 +38,7 @@ export default function LocationDashboardPage() {
 
     const [description, setDescription] = useState('');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
+    const [customFacilityInput, setCustomFacilityInput] = useState(''); // STARE NOUĂ PENTRU INPUT
     const [uploading, setUploading] = useState(false);
 
     // --- QUERIES ---
@@ -66,7 +67,6 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
-    // AICI ERA PROBLEMA (405): Am pus la loc rutele corecte din backend-ul tau
     const { data: receivedReviews } = useQuery({
         queryKey: ['location-received-reviews'],
         queryFn: async () => (await api.get('/api/location/reviews/received')).data as Review[],
@@ -84,6 +84,15 @@ export default function LocationDashboardPage() {
         queryFn: async () => (await api.get('/api/location/zones')).data as Zone[],
         enabled: !!user,
     });
+
+    // --- FUNCȚIE NOUĂ PENTRU ADĂUGARE FACILITATE ---
+    const handleAddCustomFacility = () => {
+        const value = customFacilityInput.trim();
+        if (value && !selectedFacilities.includes(value)) {
+            setSelectedFacilities(prev => [...prev, value]);
+            setCustomFacilityInput('');
+        }
+    };
 
     // --- MUTATIONS ---
     const { mutate: markNoShow } = useMutation({
@@ -421,22 +430,55 @@ export default function LocationDashboardPage() {
                                     />
                                 </div>
 
-                                {/* FACILITĂȚI */}
+                                {/* AICI ESTE SECȚIUNEA NOUĂ PENTRU FACILITĂȚI (STANDARD + CUSTOM) */}
                                 <div>
                                     <label className="text-sm font-medium text-gray-600 mb-2 block">Facilități disponibile</label>
-                                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 rounded-lg bg-gray-50">
+                                    
+                                    {/* Lista de facilități adăugate */}
+                                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 rounded-lg bg-gray-50 mb-3">
+                                        {/* 1. Facilități standard din utils */}
                                         {Object.entries(facilityLabels).map(([key, label]) => {
                                             const isSelected = selectedFacilities.includes(key);
                                             return (
                                                 <button
                                                     key={key}
-                                                    onClick={() => setSelectedFacilities(prev => prev.includes(key) ? prev.filter(f => f !== key) : [...prev, key])}
+                                                    onClick={() => setSelectedFacilities(prev => isSelected ? prev.filter(f => f !== key) : [...prev, key])}
                                                     className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${isSelected ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}
                                                 >
                                                     {isSelected && <Check size={12} className="text-indigo-600" />} {label}
                                                 </button>
                                             );
                                         })}
+                                        
+                                        {/* 2. Facilități custom (text liber) */}
+                                        {selectedFacilities.filter(f => !facilityLabels[f as keyof typeof facilityLabels]).map(customF => (
+                                            <button
+                                                key={customF}
+                                                onClick={() => setSelectedFacilities(prev => prev.filter(f => f !== customF))}
+                                                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200"
+                                            >
+                                                <Check size={12} className="text-purple-600" /> {customF}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Input-ul pentru a adăuga o facilitate nouă */}
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text"
+                                            value={customFacilityInput}
+                                            onChange={(e) => setCustomFacilityInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomFacility())}
+                                            placeholder="Ex: Terasă încălzită, Valet, Muzică live..."
+                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                                        />
+                                        <button 
+                                            onClick={handleAddCustomFacility}
+                                            className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center"
+                                            title="Adaugă facilitate"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
                                     </div>
                                 </div>
 
