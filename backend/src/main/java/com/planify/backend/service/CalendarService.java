@@ -18,6 +18,7 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,8 +53,7 @@ public class CalendarService {
                             z.getCapacity(),
                             z.getMaxPersons(),
                             config != null ? config.getAllowedDurationsList() : List.of(60),
-                            config != null ? config.getOpenTime().toString() : null,
-                            config != null ? config.getCloseTime().toString() : null
+                            config != null ? config.getSchedule() : Map.of()
                     );
                 })
                 .collect(Collectors.toList());
@@ -77,9 +77,7 @@ public class CalendarService {
         config.setZone(savedZone);
         config.setSlotDurationMinutes(30);
         config.setAllowedDurationsList(req.allowedDurations());
-        config.setOpenTime(LocalTime.parse(req.openTime()));
-        config.setCloseTime(LocalTime.parse(req.closeTime()));
-        config.setActiveDays(127);
+        config.setSchedule(req.schedule());
         configRepository.save(config);
 
         return savedZone;
@@ -103,8 +101,7 @@ public class CalendarService {
                 .orElseThrow(() -> new IllegalArgumentException("Configurația zonei nu a fost găsită"));
 
         config.setAllowedDurationsList(req.allowedDurations());
-        config.setOpenTime(LocalTime.parse(req.openTime()));
-        config.setCloseTime(LocalTime.parse(req.closeTime()));
+        config.setSchedule(req.schedule());
         configRepository.save(config);
     }
 
@@ -117,7 +114,6 @@ public class CalendarService {
             throw new IllegalArgumentException("Nu aveți permisiunea de a șterge această zonă");
         }
 
-        // Soft delete
         zone.setIsActive(false);
         zoneRepository.save(zone);
     }
@@ -131,32 +127,66 @@ public class CalendarService {
         ZoneConfig config = configRepository.findByZoneId(zoneId)
                 .orElseThrow(() -> new IllegalArgumentException("Configurația zonei nu a fost găsită"));
 
-        int dayBit = 1 << (date.getDayOfWeek().getValue() - 1);
-        if ((config.getActiveDays() & dayBit) == 0) {
+        if (!config.getAllowedDurationsList().contains(requestedDuration)) {
             return List.of();
         }
 
-        // Verificăm dacă durata cerută este permisă
-        if (!config.getAllowedDurationsList().contains(requestedDuration)) {
-            return List.of(); // Sau putem arunca excepție
+        String dayKey = date.getDayOfWeek().name().substring(0, 3).toUpperCase();
+        Map<String, String> schedule = config.getSchedule();
+        String scheduleForDay = (schedule != null) ? schedule.get(dayKey) : null;
+
+        if (scheduleForDay == null || scheduleForDay.equalsIgnoreCase("Închis") || scheduleForDay.isBlank()) {
+            return List.of();
+        }
+
+        String[] timeParts = scheduleForDay.split("-");
+        if (timeParts.length != 2) return List.of();
+
+        LocalTime openTime = LocalTime.parse(timeParts[0]);
+        LocalTime closeTime = LocalTime.parse(timeParts[1]);
+
+        // Transformăm în minute. Dacă închide după miezul nopții, adăugăm 24 de ore (1440 minute)
+        int openMin = openTime.getHour() * 60 + openTime.getMinute();
+        int closeMin = closeTime.getHour() * 60 + closeTime.getMinute();
+        if (closeMin <= openMin) {
+            closeMin += 24 * 60;
         }
 
         List<Booking> rezervariZilei = bookingRepository.findConfirmedByZoneAndDate(zoneId, date);
         List<SlotResponse> sloturi = new ArrayList<>();
-        LocalTime cursor = config.getOpenTime();
-        int pas = config.getSlotDurationMinutes(); // Salturi de 30 min
+        int pas = config.getSlotDurationMinutes();
 
-        while (!cursor.plusMinutes(requestedDuration).isAfter(config.getCloseTime())) {
-            LocalTime slotEnd = cursor.plusMinutes(requestedDuration);
-            final LocalTime slotStart = cursor;
+        // Parcurgem minutele folosind formatul liniar
+        for (int cursorMin = openMin; cursorMin + requestedDuration <= closeMin; cursorMin += pas) {
+            int slotStartMin = cursorMin;
+            int slotEndMin = cursorMin + requestedDuration;
 
-            long ocupate = rezervariZilei.stream()
-                    .filter(b -> b.getStartTime().isBefore(slotEnd) && b.getEndTime().isAfter(slotStart))
-                    .count();
+            int ocupate = 0;
+            for (Booking b : rezervariZilei) {
+                int bS = b.getStartTime().getHour() * 60 + b.getStartTime().getMinute();
+                if (bS < openMin) bS += 24 * 60;
 
-            int libere = zone.getCapacity() - (int) ocupate;
+                int bE = b.getEndTime().getHour() * 60 + b.getEndTime().getMinute();
+                if (bE <= openMin || bE < bS) bE += 24 * 60;
+
+                // Verificare de suprapunere pe axa liniară de minute
+                if (bS < slotEndMin && bE > slotStartMin) {
+                    ocupate++;
+                }
+            }
+
+            int libere = zone.getCapacity() - ocupate;
+
+            // Transformăm înapoi din minute în LocalTime
+            int hStart = (slotStartMin / 60) % 24;
+            int mStart = slotStartMin % 60;
+            LocalTime slotStart = LocalTime.of(hStart, mStart);
+
+            int hEnd = (slotEndMin / 60) % 24;
+            int mEnd = slotEndMin % 60;
+            LocalTime slotEnd = LocalTime.of(hEnd, mEnd);
+
             sloturi.add(new SlotResponse(slotStart, slotEnd, Math.max(libere, 0), libere > 0));
-            cursor = cursor.plusMinutes(pas);
         }
         return sloturi;
     }
@@ -180,11 +210,31 @@ public class CalendarService {
             throw new IllegalArgumentException("Durata aleasă nu este permisă pentru această zonă");
         }
 
-        LocalTime endTime = req.startTime().plusMinutes(req.duration());
+        String dayKey = req.bookingDate().getDayOfWeek().name().substring(0, 3).toUpperCase();
+        Map<String, String> schedule = config.getSchedule();
+        String scheduleForDay = (schedule != null) ? schedule.get(dayKey) : null;
 
-        if (req.startTime().isBefore(config.getOpenTime()) || endTime.isAfter(config.getCloseTime())) {
-            throw new IllegalArgumentException("Intervalul ales este în afara programului locației");
+        if (scheduleForDay == null || scheduleForDay.equalsIgnoreCase("Închis") || scheduleForDay.isBlank()) {
+            throw new IllegalArgumentException("Zona este închisă în această zi");
         }
+
+        String[] timeParts = scheduleForDay.split("-");
+        LocalTime openTime = LocalTime.parse(timeParts[0]);
+        LocalTime closeTime = LocalTime.parse(timeParts[1]);
+
+        int openMin = openTime.getHour() * 60 + openTime.getMinute();
+        int closeMin = closeTime.getHour() * 60 + closeTime.getMinute();
+        if (closeMin <= openMin) closeMin += 24 * 60;
+
+        int reqStartMin = req.startTime().getHour() * 60 + req.startTime().getMinute();
+        if (reqStartMin < openMin) reqStartMin += 24 * 60;
+
+        int reqEndMin = reqStartMin + req.duration();
+
+        if (reqStartMin < openMin || reqEndMin > closeMin) {
+            throw new IllegalArgumentException("Intervalul ales este în afara programului zonei pentru ziua selectată");
+        }
+
         if (req.groupSize() > zone.getMaxPersons()) {
             throw new IllegalArgumentException("Grupul depășește capacitatea maximă a zonei (" + zone.getMaxPersons() + " persoane)");
         }
@@ -194,13 +244,30 @@ public class CalendarService {
             throw new IllegalArgumentException("Ai atins limita de 5 rezervări active simultane");
         }
 
-        int ocupate = bookingRepository.countOverlapping(req.zoneId(), req.bookingDate(), req.startTime(), endTime);
+        List<Booking> rezervariZilei = bookingRepository.findConfirmedByZoneAndDate(req.zoneId(), req.bookingDate());
+        int ocupate = 0;
+        for (Booking b : rezervariZilei) {
+            int bS = b.getStartTime().getHour() * 60 + b.getStartTime().getMinute();
+            if (bS < openMin) bS += 24 * 60;
+
+            int bE = b.getEndTime().getHour() * 60 + b.getEndTime().getMinute();
+            if (bE <= openMin || bE < bS) bE += 24 * 60;
+
+            if (bS < reqEndMin && bE > reqStartMin) {
+                ocupate++;
+            }
+        }
+
         if (ocupate >= zone.getCapacity()) {
             throw new IllegalArgumentException("Slotul ales nu mai are locuri disponibile");
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Utilizatorul nu a fost găsit"));
+
+        int hEnd = (reqEndMin / 60) % 24;
+        int mEnd = reqEndMin % 60;
+        LocalTime endTime = LocalTime.of(hEnd, mEnd);
 
         Booking booking = new Booking();
         booking.setZone(zone);

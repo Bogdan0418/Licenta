@@ -48,8 +48,8 @@ export interface Zone {
     capacity: number;
     maxPersons: number;
     allowedDurations: number[]; 
-    openTime: string;
-    closeTime: string;
+    // Am înlocuit openTime și closeTime cu programul pe zile
+    schedule: Record<string, string>;
 }
 
 export interface Slot {

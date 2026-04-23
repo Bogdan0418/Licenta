@@ -2,6 +2,7 @@ package com.planify.backend.dto.request;
 
 import jakarta.validation.constraints.*;
 import java.util.List;
+import java.util.Map;
 
 public record CreateZoneRequest(
 
@@ -16,11 +17,8 @@ public record CreateZoneRequest(
 
         @NotNull(message = "Trebuie specificată cel puțin o durată")
         @Size(min = 1, message = "Trebuie specificată cel puțin o durată")
-        List<Integer> allowedDurations,  // [60, 90, 120]
+        List<Integer> allowedDurations,
 
-        @NotBlank
-        String openTime,   // "10:00"
-
-        @NotBlank
-        String closeTime   // "22:00"
+        @NotNull(message = "Programul este obligatoriu")
+        Map<String, String> schedule
 ) {}

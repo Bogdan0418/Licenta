@@ -8,6 +8,9 @@ const facilityIcons: Record<string, any> = {
     PARKING: Car,
 };
 
+// Array fix pentru a forța afișarea zilelor în ordinea corectă
+const DAYS_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 const dayLabels: Record<string, string> = {
     MON: 'Luni', TUE: 'Marți', WED: 'Miercuri',
     THU: 'Joi', FRI: 'Vineri', SAT: 'Sâmbătă', SUN: 'Duminică',
@@ -65,10 +68,7 @@ export function LocationInfo({ location }: Props) {
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {location.facilities.map((f) => {
-                            // Căutăm un icon specific. Dacă nu găsim, folosim o bifă standard
                             const Icon = facilityIcons[f] || Check; 
-                            
-                            // Dacă există în facilityLabels, punem traducerea, altfel lăsăm textul custom
                             const displayLabel = facilityLabels[f] || f; 
 
                             return (
@@ -85,20 +85,35 @@ export function LocationInfo({ location }: Props) {
                 </div>
             )}
 
-            {/* Program */}
-            {location.schedule && Object.keys(location.schedule).length > 0 && (
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                        <Clock size={14} />
-                        Program
+            {/* Programul pe fiecare Zonă */}
+            {location.zones && location.zones.length > 0 && (
+                <div className="border-t border-gray-100 pt-4 mt-2">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                        <Clock size={14} className="text-indigo-600" />
+                        Program de funcționare pe zone
                     </h3>
-                    <div className="grid grid-cols-2 gap-1">
-                        {Object.entries(location.schedule).map(([day, hours]) => (
-                            <div key={day} className="flex justify-between text-xs text-gray-600 py-0.5">
-                                <span className="font-medium">
-                                    {dayLabels[day] || day}
-                                </span>
-                                <span>{hours}</span>
+                    
+                    <div className="space-y-4">
+                        {location.zones.map(zone => (
+                            <div key={zone.id} className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-800 mb-3">{zone.name}</h4>
+                                <div className="flex flex-col gap-y-2">
+                                    {DAYS_ORDER.map((dayKey) => {
+                                        // Citim valoarea din schedule. Dacă nu există, punem implicit 'Închis'
+                                        const hours = zone.schedule?.[dayKey] || 'Închis';
+                                        
+                                        return (
+                                            <div key={dayKey} className="flex justify-between text-sm py-1 border-b border-gray-200/50 last:border-0">
+                                                <span className="text-gray-600 w-24">
+                                                    {dayLabels[dayKey]}
+                                                </span>
+                                                <span className={`font-medium ${hours === 'Închis' ? 'text-red-500' : 'text-gray-800'}`}>
+                                                    {hours}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -107,9 +122,9 @@ export function LocationInfo({ location }: Props) {
 
             {/* Contact */}
             {location.publicPhone && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone size={14} />
-                    {location.publicPhone}
+                <div className="flex items-center gap-2 text-sm text-gray-600 pt-4 border-t border-gray-100">
+                    <Phone size={14} className="text-indigo-600" />
+                    <span className="font-medium">Contact:</span> {location.publicPhone}
                 </div>
             )}
         </div>

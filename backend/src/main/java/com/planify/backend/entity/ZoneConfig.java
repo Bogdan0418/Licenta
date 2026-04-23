@@ -1,13 +1,15 @@
 package com.planify.backend.entity;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Entity
@@ -28,18 +30,13 @@ public class ZoneConfig extends BaseEntity {
     @Column(name = "slot_duration_minutes", nullable = false)
     private Integer slotDurationMinutes = 30;
 
-    // Stocăm duratele ca string separat prin virgulă: "60,90,120"
     @Column(name = "allowed_durations", nullable = false)
     private String allowedDurations = "60";
 
-    @Column(name = "open_time", nullable = false)
-    private LocalTime openTime;
-
-    @Column(name = "close_time", nullable = false)
-    private LocalTime closeTime;
-
-    @Column(name = "active_days", nullable = false)
-    private Integer activeDays = 127; // 127 = toate zilele active
+    // Salvăm programul sub formă de JSON (ex: {"MON": "10:00-22:00", "TUE": "Închis"})
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, String> schedule;
 
     // Helper methods pentru a lucra usor cu liste de Integers
     public List<Integer> getAllowedDurationsList() {

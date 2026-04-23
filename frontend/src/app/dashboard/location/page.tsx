@@ -14,6 +14,15 @@ import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
 import { facilityLabels } from '@/lib/utils';
 
+const DAYS = [
+    { key: 'MON', label: 'Luni' }, { key: 'TUE', label: 'Marți' },
+    { key: 'WED', label: 'Miercuri' }, { key: 'THU', label: 'Joi' },
+    { key: 'FRI', label: 'Vineri' }, { key: 'SAT', label: 'Sâmbătă' },
+    { key: 'SUN', label: 'Duminică' }
+];
+
+const defaultSchedule = DAYS.reduce((acc, day) => ({ ...acc, [day.key]: '10:00-22:00' }), {} as Record<string, string>);
+
 export default function LocationDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('LOCATION');
     const queryClient = useQueryClient();
@@ -27,8 +36,7 @@ export default function LocationDashboardPage() {
         capacity: 3, 
         maxPersons: 20, 
         allowedDurations: [60], 
-        openTime: '10:00', 
-        closeTime: '22:00' 
+        schedule: defaultSchedule
     });
     
     const [reviewModal, setReviewModal] = useState<number | null>(null);
@@ -38,7 +46,7 @@ export default function LocationDashboardPage() {
 
     const [description, setDescription] = useState('');
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
-    const [customFacilityInput, setCustomFacilityInput] = useState(''); // STARE NOUĂ PENTRU INPUT
+    const [customFacilityInput, setCustomFacilityInput] = useState('');
     const [uploading, setUploading] = useState(false);
 
     // --- QUERIES ---
@@ -85,7 +93,6 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
-    // --- FUNCȚIE NOUĂ PENTRU ADĂUGARE FACILITATE ---
     const handleAddCustomFacility = () => {
         const value = customFacilityInput.trim();
         if (value && !selectedFacilities.includes(value)) {
@@ -112,7 +119,7 @@ export default function LocationDashboardPage() {
             queryClient.invalidateQueries({ queryKey: ['location-zones'] });
             setShowCreateZone(false);
             setEditingZoneId(null);
-            setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], openTime: '10:00', closeTime: '22:00' });
+            setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], schedule: defaultSchedule });
         },
     });
 
@@ -128,8 +135,7 @@ export default function LocationDashboardPage() {
             capacity: zone.capacity,
             maxPersons: zone.maxPersons,
             allowedDurations: zone.allowedDurations || [60],
-            openTime: zone.openTime.substring(0, 5),
-            closeTime: zone.closeTime.substring(0, 5)
+            schedule: zone.schedule || defaultSchedule
         });
         setShowCreateZone(true);
     };
@@ -323,7 +329,7 @@ export default function LocationDashboardPage() {
                                 <button 
                                     onClick={() => {
                                         setEditingZoneId(null);
-                                        setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], openTime: '10:00', closeTime: '22:00' });
+                                        setZoneForm({ name: '', capacity: 3, maxPersons: 20, allowedDurations: [60], schedule: defaultSchedule });
                                         setShowCreateZone(!showCreateZone);
                                     }} 
                                     className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
@@ -342,7 +348,7 @@ export default function LocationDashboardPage() {
                                                     Capacitate: {zone.capacity} locuri • Max {zone.maxPersons} pers.
                                                 </p>
                                                 <p className="text-xs text-indigo-600 font-medium mt-0.5">
-                                                    Program: {zone.openTime.substring(0,5)} - {zone.closeTime.substring(0,5)} • 
+                                                    Program: Setat pe zile • 
                                                     Durate: {zone.allowedDurations?.map(d => d === 90 ? '1.5h' : `${d/60}h`).join(', ') || 'N/A'}
                                                 </p>
                                             </div>
@@ -363,9 +369,7 @@ export default function LocationDashboardPage() {
                                     <div className="grid grid-cols-2 gap-3">
                                         {[{ label: 'Nume', key: 'name', type: 'text', placeholder: 'ex: Terasă' }, 
                                           { label: 'Pers max / rezervare', key: 'maxPersons', type: 'number' }, 
-                                          { label: 'Capacitate sloturi', key: 'capacity', type: 'number' }, 
-                                          { label: 'Oră deschidere', key: 'openTime', type: 'time' }, 
-                                          { label: 'Oră închidere', key: 'closeTime', type: 'time' }].map(({ label, key, type, placeholder }) => (
+                                          { label: 'Capacitate sloturi', key: 'capacity', type: 'number' }].map(({ label, key, type, placeholder }) => (
                                             <div key={key}>
                                                 <label className="text-xs font-medium text-gray-600 mb-1 block">{label}</label>
                                                 <input 
@@ -377,29 +381,76 @@ export default function LocationDashboardPage() {
                                                 />
                                             </div>
                                         ))}
+                                    </div>
 
-                                        <div className="col-span-2 mt-2">
-                                            <label className="text-xs font-medium text-gray-600 mb-2 block">Durate permise (minute)</label>
-                                            <div className="flex gap-3">
-                                                {[60, 90, 120].map((mins) => (
-                                                    <label key={mins} className="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={zoneForm.allowedDurations.includes(mins)}
-                                                            onChange={(e) => {
-                                                                const newDurations = e.target.checked 
-                                                                    ? [...zoneForm.allowedDurations, mins]
-                                                                    : zoneForm.allowedDurations.filter((d: number) => d !== mins);
-                                                                if (newDurations.length > 0) setZoneForm(p => ({ ...p, allowedDurations: newDurations }));
-                                                            }}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300"
-                                                        />
-                                                        <span className="text-sm text-gray-700">{mins === 90 ? '1.5h' : `${mins/60}h`}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
+                                    {/* SECTIUNE NOUA PROGRAM PE ZILE */}
+                                    <div className="mt-4 border-t border-indigo-100 pt-3">
+                                        <label className="text-xs font-semibold text-indigo-800 mb-3 block">Program de funcționare</label>
+                                        <div className="space-y-2">
+                                            {DAYS.map(day => {
+                                                const currentVal = zoneForm.schedule[day.key] || 'Închis';
+                                                const isClosed = currentVal === 'Închis';
+                                                const [open, close] = isClosed ? ['', ''] : currentVal.split('-');
+
+                                                return (
+                                                    <div key={day.key} className="flex items-center gap-3">
+                                                        <span className="text-sm font-medium text-gray-700 w-20">{day.label}</span>
+                                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={!isClosed} 
+                                                                onChange={(e) => {
+                                                                    const val = e.target.checked ? '10:00-22:00' : 'Închis';
+                                                                    setZoneForm(p => ({ ...p, schedule: { ...p.schedule, [day.key]: val }}));
+                                                                }}
+                                                                className="text-indigo-600 rounded"
+                                                            />
+                                                            <span className="text-xs text-gray-500 w-12">{isClosed ? 'Închis' : 'Deschis'}</span>
+                                                        </label>
+                                                        
+                                                        {!isClosed && (
+                                                            <div className="flex gap-2 items-center flex-1">
+                                                                <input 
+                                                                    type="time" value={open} 
+                                                                    onChange={(e) => setZoneForm(p => ({ ...p, schedule: { ...p.schedule, [day.key]: `${e.target.value}-${close}` } }))}
+                                                                    className="border border-gray-300 rounded px-2 py-1 text-xs w-24 outline-none focus:border-indigo-400"
+                                                                />
+                                                                <span className="text-gray-400">-</span>
+                                                                <input 
+                                                                    type="time" value={close} 
+                                                                    onChange={(e) => setZoneForm(p => ({ ...p, schedule: { ...p.schedule, [day.key]: `${open}-${e.target.value}` } }))}
+                                                                    className="border border-gray-300 rounded px-2 py-1 text-xs w-24 outline-none focus:border-indigo-400"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
+
+                                    <div className="mt-4 border-t border-indigo-100 pt-3">
+                                        <label className="text-xs font-semibold text-indigo-800 mb-2 block">Durate permise (minute)</label>
+                                        <div className="flex gap-3">
+                                            {[60, 90, 120].map((mins) => (
+                                                <label key={mins} className="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={zoneForm.allowedDurations.includes(mins)}
+                                                        onChange={(e) => {
+                                                            const newDurations = e.target.checked 
+                                                                ? [...zoneForm.allowedDurations, mins]
+                                                                : zoneForm.allowedDurations.filter((d: number) => d !== mins);
+                                                            if (newDurations.length > 0) setZoneForm(p => ({ ...p, allowedDurations: newDurations }));
+                                                        }}
+                                                        className="w-4 h-4 text-indigo-600 rounded border-gray-300"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{mins === 90 ? '1.5h' : `${mins/60}h`}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <div className="flex gap-2 pt-2">
                                         <button onClick={() => { setShowCreateZone(false); setEditingZoneId(null); }} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm">Anulează</button>
                                         <button onClick={() => saveZone()} disabled={savingZone || !zoneForm.name || zoneForm.allowedDurations.length === 0} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm flex justify-center gap-2">{savingZone && <Loader2 size={14} className="animate-spin" />} {editingZoneId ? 'Salvează' : 'Creează'}</button>
@@ -430,13 +481,11 @@ export default function LocationDashboardPage() {
                                     />
                                 </div>
 
-                                {/* AICI ESTE SECȚIUNEA NOUĂ PENTRU FACILITĂȚI (STANDARD + CUSTOM) */}
+                                {/* SECȚIUNE FACILITĂȚI (STANDARD + CUSTOM) */}
                                 <div>
                                     <label className="text-sm font-medium text-gray-600 mb-2 block">Facilități disponibile</label>
                                     
-                                    {/* Lista de facilități adăugate */}
                                     <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 rounded-lg bg-gray-50 mb-3">
-                                        {/* 1. Facilități standard din utils */}
                                         {Object.entries(facilityLabels).map(([key, label]) => {
                                             const isSelected = selectedFacilities.includes(key);
                                             return (
@@ -450,7 +499,6 @@ export default function LocationDashboardPage() {
                                             );
                                         })}
                                         
-                                        {/* 2. Facilități custom (text liber) */}
                                         {selectedFacilities.filter(f => !facilityLabels[f as keyof typeof facilityLabels]).map(customF => (
                                             <button
                                                 key={customF}
@@ -462,7 +510,6 @@ export default function LocationDashboardPage() {
                                         ))}
                                     </div>
 
-                                    {/* Input-ul pentru a adăuga o facilitate nouă */}
                                     <div className="flex gap-2">
                                         <input 
                                             type="text"

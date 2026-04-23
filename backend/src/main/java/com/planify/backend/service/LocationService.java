@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -126,8 +127,7 @@ public class LocationService {
                 .map(z -> new ZoneSummaryResponse(
                         z.getId(), z.getName(), z.getCapacity(), z.getMaxPersons(),
                         z.getConfig() != null ? z.getConfig().getAllowedDurationsList() : List.of(60),
-                        z.getConfig() != null ? z.getConfig().getOpenTime().toString() : null,
-                        z.getConfig() != null ? z.getConfig().getCloseTime().toString() : null
+                        z.getConfig() != null ? z.getConfig().getSchedule() : Map.of()
                 )).collect(Collectors.toList());
 
         boolean isFavorite = userId != null && favoriteRepository.existsByUserIdAndLocationId(userId, id);

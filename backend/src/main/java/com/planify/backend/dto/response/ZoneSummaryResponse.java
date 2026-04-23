@@ -1,6 +1,7 @@
 package com.planify.backend.dto.response;
 
 import java.util.List;
+import java.util.Map;
 
 public record ZoneSummaryResponse(
         Long id,
@@ -8,6 +9,5 @@ public record ZoneSummaryResponse(
         Integer capacity,
         Integer maxPersons,
         List<Integer> allowedDurations,
-        String openTime,
-        String closeTime
+        Map<String, String> schedule
 ) {}
