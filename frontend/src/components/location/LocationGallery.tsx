@@ -20,42 +20,56 @@ export function LocationGallery({ photos, name }: Props) {
     }
 
     return (
-        <div className="relative h-72 rounded-xl overflow-hidden bg-gray-200">
-            <img
-                src={`http://localhost:8080${photos[current]}`}
-                alt={name}
-                className="w-full h-full object-cover"
-            />
+        <div className="flex flex-col gap-3">
+            {/* Imaginea Principală */}
+            <div className="relative h-72 sm:h-96 rounded-xl overflow-hidden bg-gray-200">
+                <img
+                    src={`http://localhost:8080${photos[current]}`}
+                    alt={name}
+                    className="w-full h-full object-cover transition-opacity duration-300"
+                />
 
+                {photos.length > 1 && (
+                    <>
+                        <button
+                            onClick={() => setCurrent(p => Math.max(0, p - 1))}
+                            disabled={current === 0}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full disabled:opacity-30 hover:bg-white transition-all shadow-sm"
+                        >
+                            <ChevronLeft size={20} className="text-gray-800" />
+                        </button>
+                        <button
+                            onClick={() => setCurrent(p => Math.min(photos.length - 1, p + 1))}
+                            disabled={current === photos.length - 1}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full disabled:opacity-30 hover:bg-white transition-all shadow-sm"
+                        >
+                            <ChevronRight size={20} className="text-gray-800" />
+                        </button>
+                    </>
+                )}
+            </div>
+
+            {/* Galeria de Thumbnails */}
             {photos.length > 1 && (
-                <>
-                    <button
-                        onClick={() => setCurrent(p => Math.max(0, p - 1))}
-                        disabled={current === 0}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full disabled:opacity-30"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
-                    <button
-                        onClick={() => setCurrent(p => Math.min(photos.length - 1, p + 1))}
-                        disabled={current === photos.length - 1}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full disabled:opacity-30"
-                    >
-                        <ChevronRight size={18} />
-                    </button>
-
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                        {photos.map((_, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setCurrent(i)}
-                                className={`w-2 h-2 rounded-full transition-colors ${
-                                    i === current ? 'bg-white' : 'bg-white/50'
-                                }`}
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {photos.map((photo, i) => (
+                        <button
+                            key={i}
+                            onClick={() => setCurrent(i)}
+                            className={`flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition-all ${
+                                i === current 
+                                    ? 'border-indigo-600 opacity-100 shadow-sm' 
+                                    : 'border-transparent opacity-60 hover:opacity-100'
+                            }`}
+                        >
+                            <img
+                                src={`http://localhost:8080${photo}`}
+                                alt={`${name} thumbnail ${i + 1}`}
+                                className="w-full h-full object-cover"
                             />
-                        ))}
-                    </div>
-                </>
+                        </button>
+                    ))}
+                </div>
             )}
         </div>
     );

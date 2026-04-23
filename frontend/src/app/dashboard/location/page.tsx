@@ -8,10 +8,11 @@ import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { 
     Calendar, Users, Loader2, Plus, Star, MessageSquare, 
-    History, Check, Edit2, Trash2, Upload, Image as ImageIcon 
+    History, Check, Edit2, Trash2, Upload, Image as ImageIcon, X 
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
+import { facilityLabels } from '@/lib/utils';
 
 export default function LocationDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('LOCATION');
@@ -21,14 +22,7 @@ export default function LocationDashboardPage() {
     const [showCreateZone, setShowCreateZone] = useState(false);
     const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
     
-    const [zoneForm, setZoneForm] = useState<{
-        name: string;
-        capacity: number;
-        maxPersons: number;
-        allowedDurations: number[];
-        openTime: string;
-        closeTime: string;
-    }>({ 
+    const [zoneForm, setZoneForm] = useState({ 
         name: '', 
         capacity: 3, 
         maxPersons: 20, 
@@ -42,20 +36,21 @@ export default function LocationDashboardPage() {
     const [comment, setComment] = useState('');
     const [reviewError, setReviewError] = useState('');
 
-    // --- STĂRI NOI PENTRU PROFIL (DESCRIERE ȘI POZE) ---
     const [description, setDescription] = useState('');
+    const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
 
+    // --- QUERIES ---
     const { data: profile } = useQuery({
         queryKey: ['location-profile'],
         queryFn: async () => (await api.get('/api/location/profile')).data,
         enabled: !!user,
     });
 
-    // Sincronizăm descrierea când se încarcă profilul
     useEffect(() => {
-        if (profile?.description) {
-            setDescription(profile.description);
+        if (profile) {
+            setDescription(profile.description || '');
+            setSelectedFacilities(profile.facilities || []);
         }
     }, [profile]);
 
@@ -71,6 +66,7 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
+    // AICI ERA PROBLEMA (405): Am pus la loc rutele corecte din backend-ul tau
     const { data: receivedReviews } = useQuery({
         queryKey: ['location-received-reviews'],
         queryFn: async () => (await api.get('/api/location/reviews/received')).data as Review[],
@@ -89,6 +85,7 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
+    // --- MUTATIONS ---
     const { mutate: markNoShow } = useMutation({
         mutationFn: async (bookingId: number) => api.post(`/api/location/bookings/${bookingId}/no-show`),
         onSuccess: () => {
@@ -99,9 +96,7 @@ export default function LocationDashboardPage() {
 
     const { mutate: saveZone, isPending: savingZone } = useMutation({
         mutationFn: async () => {
-            if (editingZoneId) {
-                return api.put(`/api/location/zones/${editingZoneId}`, zoneForm);
-            }
+            if (editingZoneId) return api.put(`/api/location/zones/${editingZoneId}`, zoneForm);
             return api.post('/api/location/zones', zoneForm);
         },
         onSuccess: () => {
@@ -114,9 +109,7 @@ export default function LocationDashboardPage() {
 
     const { mutate: deleteZone } = useMutation({
         mutationFn: async (id: number) => api.delete(`/api/location/zones/${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['location-zones'] });
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['location-zones'] }),
     });
 
     const handleEditZone = (zone: Zone) => {
@@ -143,56 +136,41 @@ export default function LocationDashboardPage() {
             setComment('');
             setReviewError('');
         },
-        onError: (err: any) => {
-            setReviewError(err.response?.data || 'Eroare la adăugarea recenziei');
-        }
+        onError: (err: any) => setReviewError(err.response?.data || 'Eroare la adăugarea recenziei')
     });
 
-    // --- MUTAȚII NOI PENTRU PROFIL ---
     const { mutate: updateProfile, isPending: updatingProfile } = useMutation({
         mutationFn: async () => api.put('/api/location/profile', { 
             description, 
-            facilities: profile?.facilities || []
+            facilities: selectedFacilities
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['location-profile'] });
             alert('Profilul a fost salvat cu succes!');
         },
-        onError: () => {
-            alert('A apărut o eroare la salvarea profilului.');
-        }
+        onError: () => alert('A apărut o eroare la salvarea profilului.')
     });
 
     const { mutate: deletePhoto } = useMutation({
         mutationFn: async (photoId: number) => api.delete(`/api/location/photos/${photoId}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['location-profile'] });
-        }
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['location-profile'] })
     });
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        
-        const file = e.target.files[0];
         const formData = new FormData();
-        formData.append('file', file);
-
+        formData.append('file', e.target.files[0]);
         setUploading(true);
         try {
-            await api.post('/api/location/photos', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            // Reîncărcăm datele ca să apară poza nouă în grilă
+            await api.post('/api/location/photos', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             queryClient.invalidateQueries({ queryKey: ['location-profile'] });
         } catch (err) {
-            alert('A apărut o eroare la încărcarea pozei.');
+            alert('Eroare la încărcarea pozei.');
         } finally {
             setUploading(false);
-            // Resetăm input-ul pentru a putea încărca imediat altă poză
             e.target.value = '';
         }
     };
-    // ---------------------------------
 
     if (authLoading || !user) {
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
@@ -219,9 +197,10 @@ export default function LocationDashboardPage() {
             <Navbar />
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
+                {/* HEADER CU RATING */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800">{profile?.displayName || 'Dashboard Locație'}</h1>
+                        <h1 className="text-xl font-bold text-gray-800">{profile?.name || 'Dashboard Locație'}</h1>
                         <p className="text-gray-400 text-sm mt-1">Gestionează rezervările și configurația locației tale</p>
                     </div>
                     {profile && (
@@ -230,7 +209,7 @@ export default function LocationDashboardPage() {
                                 <span className="text-xs text-indigo-600 font-semibold uppercase tracking-wider">Rating Locație</span>
                                 <div className="flex items-center gap-1">
                                     <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                                    <span className="font-bold text-gray-800 text-lg">{profile.rating?.toFixed(1) || '5.0'}</span>
+                                    <span className="font-bold text-gray-800 text-lg">{profile.rating?.toFixed(1) || 'N/A'}</span>
                                 </div>
                             </div>
                             <div className="w-px h-8 bg-indigo-200 mx-2"></div>
@@ -243,8 +222,9 @@ export default function LocationDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* COLOANA STÂNGA: Agendă, Istoric, Zone */}
+                    {/* COLOANA STÂNGA */}
                     <div className="space-y-6">
+                        {/* AGENDA ZILEI */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -288,6 +268,7 @@ export default function LocationDashboardPage() {
                             )}
                         </div>
 
+                        {/* ISTORIC REZERVĂRI */}
                         {pastBookings.length > 0 && (
                             <div className="bg-white rounded-xl border border-gray-200 p-6">
                                 <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -326,6 +307,7 @@ export default function LocationDashboardPage() {
                             </div>
                         )}
 
+                        {/* CONFIGURARE ZONE */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-semibold text-gray-800">Zone rezervabile</h2>
@@ -356,24 +338,8 @@ export default function LocationDashboardPage() {
                                                 </p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button 
-                                                    onClick={() => handleEditZone(zone)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
-                                                    title="Editează"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => {
-                                                        if (window.confirm('Sigur doriți să ștergeți această zonă? Istoricul rezervărilor nu va fi afectat.')) {
-                                                            deleteZone(zone.id);
-                                                        }
-                                                    }}
-                                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
-                                                    title="Șterge"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <button onClick={() => handleEditZone(zone)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md"><Edit2 size={16} /></button>
+                                                <button onClick={() => { if (window.confirm('Ștergeți zona?')) deleteZone(zone.id); }} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
                                     ))}
@@ -415,12 +381,9 @@ export default function LocationDashboardPage() {
                                                                 const newDurations = e.target.checked 
                                                                     ? [...zoneForm.allowedDurations, mins]
                                                                     : zoneForm.allowedDurations.filter((d: number) => d !== mins);
-                                                                
-                                                                if (newDurations.length > 0) {
-                                                                    setZoneForm(p => ({ ...p, allowedDurations: newDurations }));
-                                                                }
+                                                                if (newDurations.length > 0) setZoneForm(p => ({ ...p, allowedDurations: newDurations }));
                                                             }}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300"
                                                         />
                                                         <span className="text-sm text-gray-700">{mins === 90 ? '1.5h' : `${mins/60}h`}</span>
                                                     </label>
@@ -428,35 +391,19 @@ export default function LocationDashboardPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    
                                     <div className="flex gap-2 pt-2">
-                                        <button 
-                                            onClick={() => {
-                                                setShowCreateZone(false);
-                                                setEditingZoneId(null);
-                                            }} 
-                                            className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                                        >
-                                            Anulează
-                                        </button>
-                                        <button 
-                                            onClick={() => saveZone()} 
-                                            disabled={savingZone || !zoneForm.name || zoneForm.allowedDurations.length === 0} 
-                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
-                                        >
-                                            {savingZone && <Loader2 size={14} className="animate-spin" />} 
-                                            {editingZoneId ? 'Salvează' : 'Creează'}
-                                        </button>
+                                        <button onClick={() => { setShowCreateZone(false); setEditingZoneId(null); }} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm">Anulează</button>
+                                        <button onClick={() => saveZone()} disabled={savingZone || !zoneForm.name || zoneForm.allowedDurations.length === 0} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm flex justify-center gap-2">{savingZone && <Loader2 size={14} className="animate-spin" />} {editingZoneId ? 'Salvează' : 'Creează'}</button>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* COLOANA DREAPTA: Prezentare locație, Feedback */}
+                    {/* COLOANA DREAPTA */}
                     <div className="space-y-6">
                         
-                        {/* --- SECȚIUNEA: PREZENTAREA LOCAȚIEI --- */}
+                        {/* PREZENTAREA LOCAȚIEI */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                                 <ImageIcon size={16} className="text-indigo-600" />
@@ -464,109 +411,105 @@ export default function LocationDashboardPage() {
                             </h2>
                             
                             <div className="space-y-4">
-                                {/* Descriere */}
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 mb-2 block">
-                                        Descrierea locației
-                                    </label>
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Descrierea locației</label>
                                     <textarea 
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
                                         className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none resize-none"
                                         rows={4}
-                                        placeholder="Ex: O terasă superbă în inima orașului, perfectă pentru seri relaxante..."
                                     />
-                                    <div className="flex justify-end pt-2">
-                                        <button 
-                                            onClick={() => updateProfile()}
-                                            disabled={updatingProfile}
-                                            className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                                        >
-                                            {updatingProfile && <Loader2 size={14} className="animate-spin" />}
-                                            Salvează descrierea
-                                        </button>
+                                </div>
+
+                                {/* FACILITĂȚI */}
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Facilități disponibile</label>
+                                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-gray-100 rounded-lg bg-gray-50">
+                                        {Object.entries(facilityLabels).map(([key, label]) => {
+                                            const isSelected = selectedFacilities.includes(key);
+                                            return (
+                                                <button
+                                                    key={key}
+                                                    onClick={() => setSelectedFacilities(prev => prev.includes(key) ? prev.filter(f => f !== key) : [...prev, key])}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${isSelected ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                                                >
+                                                    {isSelected && <Check size={12} className="text-indigo-600" />} {label}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
+                                </div>
+
+                                <div className="flex justify-end pt-2">
+                                    <button onClick={() => updateProfile()} disabled={updatingProfile} className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                                        {updatingProfile && <Loader2 size={14} className="animate-spin" />} Salvează detaliile
+                                    </button>
                                 </div>
 
                                 <hr className="border-gray-100" />
 
-                                {/* Galerie Poze Încărcate */}
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 mb-2 block">
-                                        Galeria ta foto
-                                    </label>
-                                    
-                                    {/* Grila cu poze existente */}
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Galeria ta foto</label>
                                     {profile?.photos && profile.photos.length > 0 && (
                                         <div className="grid grid-cols-3 gap-3 mb-4">
                                             {profile.photos.map((photo: any) => (
                                                 <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
-                                                    <img 
-                                                        src={`http://localhost:8080${photo.url}`} 
-                                                        alt="Locatie" 
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                    <button
-                                                        onClick={() => {
-                                                            if(window.confirm('Ștergi această poză?')) deletePhoto(photo.id);
-                                                        }}
-                                                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="Șterge poza"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    <img src={`http://localhost:8080${photo.url}`} alt="Locatie" className="w-full h-full object-cover" />
+                                                    <button onClick={() => { if(window.confirm('Ștergi poza?')) deletePhoto(photo.id); }} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
 
-                                    {/* Zona de adăugare poză nouă */}
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors relative">
                                         <Upload size={24} className="text-gray-400 mb-2" />
-                                        <p className="text-sm text-gray-600 font-medium">Apasă pentru a încărca o imagine</p>
-                                        <p className="text-xs text-gray-400 mt-1">Poți adăuga câte una. PNG, JPG până la 5MB.</p>
-                                        
-                                        <input 
-                                            type="file" 
-                                            accept="image/*"
-                                            onChange={handleFileUpload}
-                                            disabled={uploading}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                                        />
-                                        
-                                        {uploading && (
-                                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
-                                                <Loader2 className="animate-spin text-indigo-600" size={24} />
-                                            </div>
-                                        )}
+                                        <p className="text-sm text-gray-600 font-medium">Încarcă o imagine</p>
+                                        <p className="text-xs text-gray-400 mt-1">PNG, JPG max 5MB.</p>
+                                        <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                                        {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl"><Loader2 className="animate-spin text-indigo-600" size={24} /></div>}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        {/* ------------------------------------------- */}
 
+                        {/* RECENZII PRIMITE */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
-                            <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><MessageSquare size={16} className="text-indigo-600" /> Feedback de la clienți</h2>
-                            {receivedReviews?.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Nu ai primit nicio recenzie.</p> : (
+                            <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <MessageSquare size={16} className="text-indigo-600" /> Feedback de la clienți
+                            </h2>
+                            {!receivedReviews || receivedReviews.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Nu ai primit nicio recenzie.</p> : (
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                                    {receivedReviews?.map(review => (
+                                    {receivedReviews.map(review => (
                                         <div key={review.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                            <div className="flex justify-between items-start mb-1"><span className="text-xs font-semibold text-gray-700">{review.reviewerName}</span><div className="flex gap-0.5">{[...Array(review.rating)].map((_, i) => <Star key={i} size={12} className="text-yellow-400 fill-yellow-400" />)}</div></div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-semibold text-gray-700">{review.reviewerName}</span>
+                                                <div className="flex gap-0.5">
+                                                    {[...Array(review.rating)].map((_, i) => <Star key={i} size={12} className="text-yellow-400 fill-yellow-400" />)}
+                                                </div>
+                                            </div>
                                             <p className="text-sm text-gray-600 italic">"{review.comment}"</p>
+                                            <p className="text-[10px] text-gray-400 mt-2">{format(new Date(review.createdAt), 'dd MMM yyyy', { locale: ro })}</p>
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
 
+                        {/* RECENZII DATE */}
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h2 className="font-semibold text-gray-800 mb-4">Feedback oferit clienților</h2>
-                            {givenReviews?.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Nu ai evaluat niciun client.</p> : (
+                            {!givenReviews || givenReviews.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Nu ai evaluat niciun client.</p> : (
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                                    {givenReviews?.map(review => (
+                                    {givenReviews.map(review => (
                                         <div key={review.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                            <div className="flex justify-between items-start mb-1"><span className="text-xs font-semibold text-gray-700">Către client (Rezervare #{review.bookingId})</span><div className="flex gap-0.5">{[...Array(review.rating)].map((_, i) => <Star key={i} size={12} className="text-yellow-400 fill-yellow-400" />)}</div></div>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-semibold text-gray-700">Către client (Rezervare #{review.bookingId})</span>
+                                                <div className="flex gap-0.5">
+                                                    {[...Array(review.rating)].map((_, i) => <Star key={i} size={12} className="text-yellow-400 fill-yellow-400" />)}
+                                                </div>
+                                            </div>
                                             <p className="text-sm text-gray-600 italic">"{review.comment}"</p>
+                                            <p className="text-[10px] text-gray-400 mt-2">{format(new Date(review.createdAt), 'dd MMM yyyy', { locale: ro })}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -576,17 +519,12 @@ export default function LocationDashboardPage() {
                 </div>
             </div>
 
+            {/* MODAL RECENZII */}
             {reviewModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
                     <div className="bg-white rounded-xl p-6 max-w-sm w-full">
                         <h3 className="font-bold text-gray-800 mb-4 text-lg">Evaluează clientul</h3>
-                        
-                        {reviewError && (
-                            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
-                                {reviewError}
-                            </div>
-                        )}
-
+                        {reviewError && <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">{reviewError}</div>}
                         <div className="mb-4">
                             <label className="text-sm text-gray-600 mb-2 block">Cum s-a comportat clientul?</label>
                             <div className="flex gap-1">{[1, 2, 3, 4, 5].map((star) => <Star key={star} size={28} className={`cursor-pointer transition-colors ${rating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} onClick={() => setRating(star)} />)}</div>
