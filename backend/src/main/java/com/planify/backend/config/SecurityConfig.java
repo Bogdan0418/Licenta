@@ -51,7 +51,8 @@ public class SecurityConfig {
                                 "/api/locations/public/**", // browsing locatii
                                 "/api/search/**",      // cautare si filtrare
                                 "/api/dev/**",
-                                "/error"
+                                "/error",
+                                "/uploads/**"
                         ).permitAll()
 
                         // Rute doar pentru USER

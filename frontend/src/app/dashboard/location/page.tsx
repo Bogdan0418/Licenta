@@ -3,10 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { Navbar } from '@/components/layout/Navbar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
-import { Calendar, Users, Loader2, Plus, Star, MessageSquare, History, Check, Edit2, Trash2 } from 'lucide-react';
+import { 
+    Calendar, Users, Loader2, Plus, Star, MessageSquare, 
+    History, Check, Edit2, Trash2, Upload, Image as ImageIcon 
+} from 'lucide-react';
 import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
 
@@ -18,7 +21,6 @@ export default function LocationDashboardPage() {
     const [showCreateZone, setShowCreateZone] = useState(false);
     const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
     
-    // ATENȚIE: Am folosit allowedDurations în loc de bookingDurationMinutes
     const [zoneForm, setZoneForm] = useState<{
         name: string;
         capacity: number;
@@ -40,11 +42,22 @@ export default function LocationDashboardPage() {
     const [comment, setComment] = useState('');
     const [reviewError, setReviewError] = useState('');
 
+    // --- STĂRI NOI PENTRU PROFIL (DESCRIERE ȘI POZE) ---
+    const [description, setDescription] = useState('');
+    const [uploading, setUploading] = useState(false);
+
     const { data: profile } = useQuery({
         queryKey: ['location-profile'],
         queryFn: async () => (await api.get('/api/location/profile')).data,
         enabled: !!user,
     });
+
+    // Sincronizăm descrierea când se încarcă profilul
+    useEffect(() => {
+        if (profile?.description) {
+            setDescription(profile.description);
+        }
+    }, [profile]);
 
     const { data: agenda, isLoading: agendaLoading } = useQuery({
         queryKey: ['agenda', selectedDate],
@@ -135,6 +148,52 @@ export default function LocationDashboardPage() {
         }
     });
 
+    // --- MUTAȚII NOI PENTRU PROFIL ---
+    const { mutate: updateProfile, isPending: updatingProfile } = useMutation({
+        mutationFn: async () => api.put('/api/location/profile', { 
+            description, 
+            facilities: profile?.facilities || []
+        }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['location-profile'] });
+            alert('Profilul a fost salvat cu succes!');
+        },
+        onError: () => {
+            alert('A apărut o eroare la salvarea profilului.');
+        }
+    });
+
+    const { mutate: deletePhoto } = useMutation({
+        mutationFn: async (photoId: number) => api.delete(`/api/location/photos/${photoId}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['location-profile'] });
+        }
+    });
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        
+        const file = e.target.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setUploading(true);
+        try {
+            await api.post('/api/location/photos', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            // Reîncărcăm datele ca să apară poza nouă în grilă
+            queryClient.invalidateQueries({ queryKey: ['location-profile'] });
+        } catch (err) {
+            alert('A apărut o eroare la încărcarea pozei.');
+        } finally {
+            setUploading(false);
+            // Resetăm input-ul pentru a putea încărca imediat altă poză
+            e.target.value = '';
+        }
+    };
+    // ---------------------------------
+
     if (authLoading || !user) {
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
     }
@@ -184,6 +243,7 @@ export default function LocationDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* COLOANA STÂNGA: Agendă, Istoric, Zone */}
                     <div className="space-y-6">
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
@@ -343,7 +403,6 @@ export default function LocationDashboardPage() {
                                             </div>
                                         ))}
 
-                                        {/* AICI ESTE NOUL SELECTOR PENTRU DURATE (CHECKBOX-URI) */}
                                         <div className="col-span-2 mt-2">
                                             <label className="text-xs font-medium text-gray-600 mb-2 block">Durate permise (minute)</label>
                                             <div className="flex gap-3">
@@ -394,7 +453,98 @@ export default function LocationDashboardPage() {
                         </div>
                     </div>
 
+                    {/* COLOANA DREAPTA: Prezentare locație, Feedback */}
                     <div className="space-y-6">
+                        
+                        {/* --- SECȚIUNEA: PREZENTAREA LOCAȚIEI --- */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                            <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <ImageIcon size={16} className="text-indigo-600" />
+                                Prezentarea locației
+                            </h2>
+                            
+                            <div className="space-y-4">
+                                {/* Descriere */}
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">
+                                        Descrierea locației
+                                    </label>
+                                    <textarea 
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none resize-none"
+                                        rows={4}
+                                        placeholder="Ex: O terasă superbă în inima orașului, perfectă pentru seri relaxante..."
+                                    />
+                                    <div className="flex justify-end pt-2">
+                                        <button 
+                                            onClick={() => updateProfile()}
+                                            disabled={updatingProfile}
+                                            className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                                        >
+                                            {updatingProfile && <Loader2 size={14} className="animate-spin" />}
+                                            Salvează descrierea
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <hr className="border-gray-100" />
+
+                                {/* Galerie Poze Încărcate */}
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">
+                                        Galeria ta foto
+                                    </label>
+                                    
+                                    {/* Grila cu poze existente */}
+                                    {profile?.photos && profile.photos.length > 0 && (
+                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                            {profile.photos.map((photo: any) => (
+                                                <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
+                                                    <img 
+                                                        src={`http://localhost:8080${photo.url}`} 
+                                                        alt="Locatie" 
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            if(window.confirm('Ștergi această poză?')) deletePhoto(photo.id);
+                                                        }}
+                                                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Șterge poza"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Zona de adăugare poză nouă */}
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors relative">
+                                        <Upload size={24} className="text-gray-400 mb-2" />
+                                        <p className="text-sm text-gray-600 font-medium">Apasă pentru a încărca o imagine</p>
+                                        <p className="text-xs text-gray-400 mt-1">Poți adăuga câte una. PNG, JPG până la 5MB.</p>
+                                        
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={handleFileUpload}
+                                            disabled={uploading}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                                        />
+                                        
+                                        {uploading && (
+                                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                                                <Loader2 className="animate-spin text-indigo-600" size={24} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* ------------------------------------------- */}
+
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><MessageSquare size={16} className="text-indigo-600" /> Feedback de la clienți</h2>
                             {receivedReviews?.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Nu ai primit nicio recenzie.</p> : (
