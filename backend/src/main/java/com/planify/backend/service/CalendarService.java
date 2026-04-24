@@ -28,15 +28,18 @@ public class CalendarService {
     private final VenueZoneRepository zoneRepository;
     private final ZoneConfigRepository configRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     public CalendarService(BookingRepository bookingRepository,
                            VenueZoneRepository zoneRepository,
                            ZoneConfigRepository configRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           EmailService emailService) {
         this.bookingRepository = bookingRepository;
         this.zoneRepository = zoneRepository;
         this.configRepository = configRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     // --- ZONES CRUD ---
@@ -145,7 +148,6 @@ public class CalendarService {
         LocalTime openTime = LocalTime.parse(timeParts[0]);
         LocalTime closeTime = LocalTime.parse(timeParts[1]);
 
-        // Transformăm în minute. Dacă închide după miezul nopții, adăugăm 24 de ore (1440 minute)
         int openMin = openTime.getHour() * 60 + openTime.getMinute();
         int closeMin = closeTime.getHour() * 60 + closeTime.getMinute();
         if (closeMin <= openMin) {
@@ -156,7 +158,6 @@ public class CalendarService {
         List<SlotResponse> sloturi = new ArrayList<>();
         int pas = config.getSlotDurationMinutes();
 
-        // Parcurgem minutele folosind formatul liniar
         for (int cursorMin = openMin; cursorMin + requestedDuration <= closeMin; cursorMin += pas) {
             int slotStartMin = cursorMin;
             int slotEndMin = cursorMin + requestedDuration;
@@ -169,15 +170,14 @@ public class CalendarService {
                 int bE = b.getEndTime().getHour() * 60 + b.getEndTime().getMinute();
                 if (bE <= openMin || bE < bS) bE += 24 * 60;
 
-                // Verificare de suprapunere pe axa liniară de minute
                 if (bS < slotEndMin && bE > slotStartMin) {
-                    ocupate++;
+                    // REPARAT AICI: Acum adunăm numărul de persoane, nu o singură unitate
+                    ocupate += b.getGroupSize();
                 }
             }
 
             int libere = zone.getCapacity() - ocupate;
 
-            // Transformăm înapoi din minute în LocalTime
             int hStart = (slotStartMin / 60) % 24;
             int mStart = slotStartMin % 60;
             LocalTime slotStart = LocalTime.of(hStart, mStart);
@@ -254,12 +254,14 @@ public class CalendarService {
             if (bE <= openMin || bE < bS) bE += 24 * 60;
 
             if (bS < reqEndMin && bE > reqStartMin) {
-                ocupate++;
+                // REPARAT AICI: Scădem numărul corect de persoane
+                ocupate += b.getGroupSize();
             }
         }
 
-        if (ocupate >= zone.getCapacity()) {
-            throw new IllegalArgumentException("Slotul ales nu mai are locuri disponibile");
+        // REPARAT AICI: Verificăm dacă mai încap în funcție de capacitate
+        if (ocupate + req.groupSize() > zone.getCapacity()) {
+            throw new IllegalArgumentException("Slotul ales nu mai are locuri disponibile pentru " + req.groupSize() + " persoane");
         }
 
         User user = userRepository.findById(userId)
@@ -279,6 +281,27 @@ public class CalendarService {
         booking.setStatus(BookingStatus.CONFIRMED);
 
         Booking saved = bookingRepository.save(booking);
+
+        try {
+            String locationName = zone.getLocation().getDisplayName();
+
+            String htmlMessage = emailService.buildBookingTemplate(
+                    user.getFirstName(),
+                    locationName,
+                    saved.getBookingDate().toString(),
+                    saved.getStartTime().toString(),
+                    zone.getName()
+            );
+
+            emailService.sendHtmlEmail(
+                    user.getEmail(),
+                    "Confirmare Rezervare - " + locationName,
+                    htmlMessage
+            );
+        } catch (Exception e) {
+            System.err.println("Rezervarea a fost creată, dar email-ul nu a putut fi trimis: " + e.getMessage());
+        }
+
         return toBookingResponse(saved);
     }
 
