@@ -225,4 +225,33 @@ public class LocationService {
         }
         locationRepository.save(location);
     }
+
+    @Transactional
+    public void deleteAccount(Long locationId, String password) {
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită."));
+
+        // Verificăm dacă parola este corectă
+        if (!passwordEncoder.matches(password, location.getPasswordHash())) {
+            throw new IllegalArgumentException("Parola incorectă!");
+        }
+
+        // 1. Ștergem pozele de pe disc
+        List<LocationPhoto> photos = photoRepository.findByLocationIdOrderByDisplayOrderAsc(locationId);
+        for (LocationPhoto photo : photos) {
+            try {
+                Files.deleteIfExists(Paths.get("uploads", photo.getFilePath()));
+            } catch (Exception ignored) {
+                // ignorăm dacă fisierul nu mai există pe disc
+            }
+        }
+
+        // 2. Ștergem datele din tabela de favorite (dacă entitatea UserFavorite nu are acțiune de tip CASCADE configurată)
+        // NOTĂ: Va trebui să asiguri că ai o metodă `void deleteByLocationId(Long locationId);` în `UserFavoriteRepository`
+        favoriteRepository.deleteByLocationId(locationId);
+
+        // 3. Ștergem locația din baza de date
+        // Deoarece în entitatea Location ai "cascade = CascadeType.ALL" peste facilități, poze, zone (și automat rezervările care derivă din zone), acestea se vor șterge prin cascade automat.
+        locationRepository.delete(location);
+    }
 }

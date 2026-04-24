@@ -13,4 +13,5 @@ public interface UserFavoriteRepository extends JpaRepository<UserFavorite, User
     boolean existsByUserIdAndLocationId(Long userId, Long locationId);
     void deleteByUserIdAndLocationId(Long userId, Long locationId);
     int countByLocationId(Long locationId);
+    void deleteByLocationId(Long locationId);
 }

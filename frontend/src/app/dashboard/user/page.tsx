@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useAuth } from '@/context/AuthContext'; // <-- Import pentru delogare
 import { Navbar } from '@/components/layout/Navbar';
 import { Calendar, MapPin, X, Loader2, AlertTriangle, Star, MessageSquare, Check } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12,6 +13,7 @@ import { Booking, Review } from '@/types';
 
 export default function UserDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('USER');
+    const { logout } = useAuth(); // Extragem funcția de delogare
     const queryClient = useQueryClient();
     
     const [cancelWarning, setCancelWarning] = useState<number | null>(null);
@@ -19,6 +21,11 @@ export default function UserDashboardPage() {
     const [reviewModal, setReviewModal] = useState<number | null>(null);
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
+
+    // --- STATE ȘTERGERE CONT ---
+    const [deleteModal, setDeleteModal] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteError, setDeleteError] = useState('');
 
     const { data: bookings, isLoading: bookingsLoading } = useQuery({
         queryKey: ['my-bookings'],
@@ -62,6 +69,18 @@ export default function UserDashboardPage() {
             setReviewModal(null);
             setRating(5);
             setComment('');
+        }
+    });
+
+    // --- MUTATION ȘTERGERE CONT ---
+    const { mutate: deleteAccount, isPending: deletingAccount } = useMutation({
+        mutationFn: async () => api.delete('/api/user/account', { data: { password: deletePassword } }),
+        onSuccess: () => {
+            alert('Contul a fost șters cu succes!');
+            logout(); // Delogare și redirect la Home
+        },
+        onError: (err: any) => {
+            setDeleteError(err.response?.data?.message || err.response?.data || 'Eroare! Verifică parola.');
         }
     });
 
@@ -218,6 +237,22 @@ export default function UserDashboardPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* --- DANGER ZONE - ȘTERGERE CONT UTILIZATOR --- */}
+                        <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+                            <h2 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                                <AlertTriangle size={18} className="text-red-600" /> Zonă Periculoasă (Ștergere Cont)
+                            </h2>
+                            <p className="text-sm text-red-600 mb-4">
+                                Atenție! Ștergerea contului este o acțiune ireversibilă. Toate datele tale, rezervările și recenziile vor fi șterse definitiv din sistem.
+                            </p>
+                            <button 
+                                onClick={() => setDeleteModal(true)} 
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Șterge definitiv contul
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -251,6 +286,53 @@ export default function UserDashboardPage() {
                         <div className="flex gap-3">
                             <button onClick={() => { setReviewModal(null); setRating(5); setComment(''); }} className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm">Renunță</button>
                             <button onClick={() => submitReview()} disabled={submittingReview || comment.trim().length < 3} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-1">{submittingReview && <Loader2 size={14} className="animate-spin" />} Trimite</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL ȘTERGERE CONT */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+                    <div className="bg-white rounded-xl p-6 max-w-sm w-full border-t-4 border-red-600 shadow-2xl">
+                        <h3 className="font-bold text-gray-800 mb-2 text-lg flex items-center gap-2">
+                            <AlertTriangle className="text-red-600" /> Confirmare Ștergere
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Pentru a confirma ștergerea definitivă a contului, te rugăm să introduci parola ta mai jos. Această acțiune <b>NU</b> poate fi anulată!
+                        </p>
+                        
+                        {deleteError && (
+                            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
+                                {deleteError}
+                            </div>
+                        )}
+                        
+                        <div className="mb-6">
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Parola ta</label>
+                            <input 
+                                type="password" 
+                                value={deletePassword} 
+                                onChange={(e) => setDeletePassword(e.target.value)} 
+                                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-300 outline-none" 
+                                placeholder="Introdu parola..." 
+                            />
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => { setDeleteModal(false); setDeletePassword(''); setDeleteError(''); }} 
+                                className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 py-2 rounded-lg text-sm font-medium"
+                            >
+                                Renunță
+                            </button>
+                            <button 
+                                onClick={() => deleteAccount()} 
+                                disabled={deletingAccount || !deletePassword} 
+                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                {deletingAccount && <Loader2 size={14} className="animate-spin" />} Șterge definitiv
+                            </button>
                         </div>
                     </div>
                 </div>

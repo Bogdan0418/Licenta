@@ -2,13 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useAuth } from '@/context/AuthContext'; // <-- Adăugat pentru logout
 import { Navbar } from '@/components/layout/Navbar';
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, isToday, isThisWeek, isThisMonth, parseISO } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { 
     Calendar, Users, Loader2, Plus, Star, MessageSquare, 
-    History, Check, Edit2, Trash2, Upload, Image as ImageIcon, X 
+    History, Check, Edit2, Trash2, Upload, Image as ImageIcon, X,
+    BarChart3, TrendingUp, Clock, AlertTriangle // <-- Iconiță nouă adăugată
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
@@ -25,6 +27,7 @@ const defaultSchedule = DAYS.reduce((acc, day) => ({ ...acc, [day.key]: '10:00-2
 
 export default function LocationDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('LOCATION');
+    const { logout } = useAuth(); // Funcția pentru delogare automată
     const queryClient = useQueryClient();
     
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -48,6 +51,11 @@ export default function LocationDashboardPage() {
     const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
     const [customFacilityInput, setCustomFacilityInput] = useState('');
     const [uploading, setUploading] = useState(false);
+
+    // --- STATE ȘTERGERE CONT ---
+    const [deleteModal, setDeleteModal] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteError, setDeleteError] = useState('');
 
     // --- QUERIES ---
     const { data: profile } = useQuery({
@@ -187,11 +195,46 @@ export default function LocationDashboardPage() {
         }
     };
 
+    // --- MUTATION PENTRU ȘTERGERE CONT ---
+    const { mutate: deleteAccount, isPending: deletingAccount } = useMutation({
+        mutationFn: async () => api.delete('/api/location/account', { data: { password: deletePassword } }),
+        onSuccess: () => {
+            alert('Locația și contul tău au fost șterse cu succes!');
+            logout(); // Delogare și redirect la Homepage
+        },
+        onError: (err: any) => {
+            setDeleteError(err.response?.data?.message || err.response?.data || 'Eroare! Verifică parola.');
+        }
+    });
+
     if (authLoading || !user) {
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
     }
 
     const pastBookings = allBookings?.filter(b => ['COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_NO_SHOW'].includes(b.status)) || [];
+
+    // --- CALCUL STATISTICI ---
+    const validBookings = allBookings?.filter(b => b.status === 'CONFIRMED' || b.status === 'COMPLETED') || [];
+    
+    const bookingsToday = validBookings.filter(b => isToday(parseISO(b.bookingDate))).length;
+    const bookingsThisWeek = validBookings.filter(b => isThisWeek(parseISO(b.bookingDate), { weekStartsOn: 1 })).length;
+    const bookingsThisMonth = validBookings.filter(b => isThisMonth(parseISO(b.bookingDate))).length;
+    
+    const totalGuests = validBookings.reduce((sum, b) => sum + b.groupSize, 0);
+
+    const hourCounts: Record<string, number> = {};
+    const dayCounts: Record<string, number> = {};
+
+    validBookings.forEach(b => {
+        const hour = b.startTime.substring(0, 5);
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+
+        const dayName = format(parseISO(b.bookingDate), 'EEEE', { locale: ro });
+        dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
+    });
+
+    const topHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+    const topDay = Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
     const statusColors: Record<string, string> = {
         CONFIRMED: 'bg-green-100 text-green-700',
@@ -234,6 +277,51 @@ export default function LocationDashboardPage() {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* --- STATISTICI LOCAȚIE --- */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+                        <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600">
+                            <BarChart3 size={24} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase">Rezervări (Azi/Săpt/Lună)</p>
+                            <p className="text-lg font-bold text-gray-800">
+                                {bookingsToday} <span className="text-sm text-gray-400 font-normal">/ {bookingsThisWeek} / {bookingsThisMonth}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+                        <div className="bg-orange-100 p-3 rounded-lg text-orange-600">
+                            <Users size={24} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase">Clienți (Total)</p>
+                            <p className="text-lg font-bold text-gray-800">{totalGuests}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+                        <div className="bg-green-100 p-3 rounded-lg text-green-600">
+                            <TrendingUp size={24} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase">Ziua de Top</p>
+                            <p className="text-lg font-bold text-gray-800 capitalize">{topDay}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+                        <div className="bg-purple-100 p-3 rounded-lg text-purple-600">
+                            <Clock size={24} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium uppercase">Ora de Top</p>
+                            <p className="text-lg font-bold text-gray-800">{topHour}</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -383,7 +471,6 @@ export default function LocationDashboardPage() {
                                         ))}
                                     </div>
 
-                                    {/* SECTIUNE NOUA PROGRAM PE ZILE */}
                                     <div className="mt-4 border-t border-indigo-100 pt-3">
                                         <label className="text-xs font-semibold text-indigo-800 mb-3 block">Program de funcționare</label>
                                         <div className="space-y-2">
@@ -604,6 +691,22 @@ export default function LocationDashboardPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* --- DANGER ZONE - ȘTERGERE CONT --- */}
+                        <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+                            <h2 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                                <AlertTriangle size={18} className="text-red-600" /> Zonă Periculoasă (Ștergere Cont)
+                            </h2>
+                            <p className="text-sm text-red-600 mb-4">
+                                Atenție! Ștergerea contului este o acțiune ireversibilă. Toate datele locației tale (poze, zone, rezervări, recenzii) vor fi șterse definitiv din sistem.
+                            </p>
+                            <button 
+                                onClick={() => setDeleteModal(true)} 
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Șterge definitiv locația
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -625,6 +728,53 @@ export default function LocationDashboardPage() {
                         <div className="flex gap-3">
                             <button onClick={() => { setReviewModal(null); setRating(5); setComment(''); setReviewError(''); }} className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm">Renunță</button>
                             <button onClick={() => submitReview()} disabled={submittingReview || comment.trim().length < 3} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-1">{submittingReview && <Loader2 size={14} className="animate-spin" />} Trimite</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL ȘTERGERE CONT */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+                    <div className="bg-white rounded-xl p-6 max-w-sm w-full border-t-4 border-red-600 shadow-2xl">
+                        <h3 className="font-bold text-gray-800 mb-2 text-lg flex items-center gap-2">
+                            <AlertTriangle className="text-red-600" /> Confirmare Ștergere
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Pentru a confirma ștergerea definitivă a contului, te rugăm să introduci parola ta mai jos. Această acțiune <b>NU</b> poate fi anulată!
+                        </p>
+                        
+                        {deleteError && (
+                            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
+                                {deleteError}
+                            </div>
+                        )}
+                        
+                        <div className="mb-6">
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Parola ta</label>
+                            <input 
+                                type="password" 
+                                value={deletePassword} 
+                                onChange={(e) => setDeletePassword(e.target.value)} 
+                                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-300 outline-none" 
+                                placeholder="Introdu parola..." 
+                            />
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => { setDeleteModal(false); setDeletePassword(''); setDeleteError(''); }} 
+                                className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 py-2 rounded-lg text-sm font-medium"
+                            >
+                                Renunță
+                            </button>
+                            <button 
+                                onClick={() => deleteAccount()} 
+                                disabled={deletingAccount || !deletePassword} 
+                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                {deletingAccount && <Loader2 size={14} className="animate-spin" />} Șterge definitiv
+                            </button>
                         </div>
                     </div>
                 </div>

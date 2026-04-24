@@ -135,4 +135,24 @@ public class LocationController {
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
     }
+
+    @DeleteMapping("/api/location/account")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> deleteAccount(@RequestBody Map<String, String> requestBody, HttpServletRequest request) {
+        try {
+            Long locationId = extractLocationId(request);
+            String password = requestBody.get("password");
+
+            if (password == null || password.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Parola este obligatorie."));
+            }
+
+            locationService.deleteAccount(locationId, password);
+            return ResponseEntity.ok(Map.of("message", "Contul a fost șters cu succes."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "A apărut o eroare la ștergerea contului."));
+        }
+    }
 }
