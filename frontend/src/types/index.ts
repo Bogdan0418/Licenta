@@ -110,3 +110,13 @@ export interface AuditLog {
     details: string;
     createdAt: string;
 }
+
+export interface AdminStatistics {
+    totalUsers: number;
+    blockedUsers: number;
+    totalLocations: number;
+    pendingLocations: number;
+    verifiedLocations: number;
+    totalBookings: number;
+    reportedReviews: number;
+}

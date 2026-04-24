@@ -14,6 +14,7 @@ import java.util.Optional;
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     boolean existsByBookingIdAndReviewerType(Long bookingId, ReviewerType reviewerType);
+    long countByIsReportedTrue();
 
     @Query("""
     SELECT r FROM Review r

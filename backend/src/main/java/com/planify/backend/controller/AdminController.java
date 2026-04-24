@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.planify.backend.dto.response.AdminStatisticsResponse;
 
 import java.util.List;
 
@@ -175,5 +176,11 @@ public class AdminController {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
+    }
+
+    // ── Statistici Dashboard ──────────────────────────────────────────────
+    @GetMapping("/statistics")
+    public ResponseEntity<AdminStatisticsResponse> getDashboardStatistics() {
+        return ResponseEntity.ok(adminService.getStatistics());
     }
 }

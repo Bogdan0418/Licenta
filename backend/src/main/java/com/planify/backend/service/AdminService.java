@@ -7,6 +7,7 @@ import com.planify.backend.entity.enums.UserStatus;
 import com.planify.backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.planify.backend.dto.response.AdminStatisticsResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,17 +21,20 @@ public class AdminService {
     private final ReviewRepository reviewRepository;
     private final AuditLogRepository auditLogRepository;
     private final LocationPhotoRepository photoRepository;
+    private final BookingRepository bookingRepository;
 
     public AdminService(LocationRepository locationRepository,
                         UserRepository userRepository,
                         ReviewRepository reviewRepository,
                         AuditLogRepository auditLogRepository,
-                        LocationPhotoRepository photoRepository) {
+                        LocationPhotoRepository photoRepository,
+                        BookingRepository bookingRepository) {
         this.locationRepository = locationRepository;
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
         this.auditLogRepository = auditLogRepository;
         this.photoRepository = photoRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     // Lista locatiilor PENDING
@@ -283,6 +287,31 @@ public class AdminService {
                 u.getRating(),
                 u.getRatingCount(),
                 u.getCreatedAt()
+        );
+    }
+
+    // Obținerea statisticilor pentru Dashboard-ul de Admin
+    @Transactional(readOnly = true)
+    public AdminStatisticsResponse getStatistics() {
+        long totalUsers = userRepository.count();
+        long blockedUsers = userRepository.countByStatus(UserStatus.BLOCKED);
+
+        long totalLocations = locationRepository.count();
+        long pendingLocations = locationRepository.countByStatus(LocationStatus.PENDING);
+        long verifiedLocations = locationRepository.countByStatus(LocationStatus.VERIFIED);
+
+        long totalBookings = bookingRepository.count();
+
+        long reportedReviews = reviewRepository.countByIsReportedTrue();
+
+        return new AdminStatisticsResponse(
+                totalUsers,
+                blockedUsers,
+                totalLocations,
+                pendingLocations,
+                verifiedLocations,
+                totalBookings,
+                reportedReviews
         );
     }
 }
