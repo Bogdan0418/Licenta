@@ -20,7 +20,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.SimpleMailMessage;
 
+import java.util.Map;
+import java.util.UUID;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -35,18 +40,24 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final LocationService locationService;
 
+    // Serviciul de email declarat aici
+    private final JavaMailSender javaMailSender;
+
+    // Constructorul actualizat care include și JavaMailSender
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           UserRepository userRepository,
                           LocationRepository locationRepository,
                           PasswordEncoder passwordEncoder,
-                          LocationService locationService) {
+                          LocationService locationService,
+                          JavaMailSender javaMailSender) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.locationRepository = locationRepository;
         this.passwordEncoder = passwordEncoder;
         this.locationService = locationService;
+        this.javaMailSender = javaMailSender;
     }
 
     // ── Login ──────────────────────────────────────────────────────────────
@@ -193,5 +204,90 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // ── Forgot Password ───────────────────────────────────────────────────
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String token = UUID.randomUUID().toString();
+        LocalDateTime expiry = LocalDateTime.now().plusHours(1); // Expiră într-o oră
+
+        boolean found = false;
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            user.setResetToken(token);
+            user.setResetTokenExpiresAt(expiry);
+            userRepository.save(user);
+            found = true;
+        } else {
+            Optional<Location> locOpt = locationRepository.findByOwnerEmail(email);
+            if (locOpt.isPresent()) {
+                Location loc = locOpt.get();
+                loc.setResetToken(token);
+                loc.setResetTokenExpiresAt(expiry);
+                locationRepository.save(loc);
+                found = true;
+            }
+        }
+
+        if (found) {
+            String resetLink = "http://localhost:3000/reset-password?token=" + token;
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            message.setSubject("Resetare parolă - Planify");
+            message.setText("Accesează următorul link pentru a-ți reseta parola: \n" + resetLink);
+
+            // Această linie va trimite efectiv mailul
+            javaMailSender.send(message);
+        }
+
+        // Returnăm mereu OK pentru a nu dezvălui ce email-uri există în baza de date (Security Best Practice)
+        return ResponseEntity.ok("Dacă email-ul există în sistem, vei primi un link de resetare.");
+    }
+
+    // ── Reset Password ────────────────────────────────────────────────────
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String newPassword = request.get("newPassword");
+
+        // Caută token-ul în Users
+        Optional<User> userOpt = userRepository.findAll().stream()
+                .filter(u -> token.equals(u.getResetToken()))
+                .findFirst();
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+                return ResponseEntity.badRequest().body("Link-ul a expirat.");
+            }
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
+            user.setResetToken(null);
+            user.setResetTokenExpiresAt(null);
+            userRepository.save(user);
+            return ResponseEntity.ok("Parola a fost schimbată cu succes.");
+        }
+
+        // Caută token-ul în Locations
+        Optional<Location> locOpt = locationRepository.findAll().stream()
+                .filter(l -> token.equals(l.getResetToken()))
+                .findFirst();
+
+        if (locOpt.isPresent()) {
+            Location loc = locOpt.get();
+            if (loc.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+                return ResponseEntity.badRequest().body("Link-ul a expirat.");
+            }
+            loc.setPasswordHash(passwordEncoder.encode(newPassword));
+            loc.setResetToken(null);
+            loc.setResetTokenExpiresAt(null);
+            locationRepository.save(loc);
+            return ResponseEntity.ok("Parola a fost schimbată cu succes.");
+        }
+
+        return ResponseEntity.badRequest().body("Token invalid.");
     }
 }

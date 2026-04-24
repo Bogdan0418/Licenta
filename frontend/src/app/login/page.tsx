@@ -89,9 +89,15 @@ export default function LoginPage() {
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">
-                            Parolă
-                        </label>
+                        {/* Aici am adăugat flexbox pentru a pune "Parolă" în stânga și "Ai uitat parola?" în dreapta */}
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-sm font-medium text-gray-700 block">
+                                Parolă
+                            </label>
+                            <Link href="/forgot-password" className="text-xs text-indigo-600 hover:underline">
+                                Ai uitat parola?
+                            </Link>
+                        </div>
                         <input
                             {...register('password')}
                             type="password"

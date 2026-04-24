@@ -99,6 +99,12 @@ public class Location extends BaseEntity {
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
+    @Column(name = "reset_token", unique = true)
+    private String resetToken;
+
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
+
     @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
     private List<LocationPhoto> photos = new ArrayList<>();

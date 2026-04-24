@@ -52,7 +52,9 @@ public class SecurityConfig {
                                 "/api/search/**",      // cautare si filtrare
                                 "/api/dev/**",
                                 "/error",
-                                "/uploads/**"
+                                "/uploads/**",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
                         ).permitAll()
 
                         // Rute doar pentru USER
