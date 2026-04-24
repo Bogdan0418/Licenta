@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
@@ -15,14 +15,17 @@ export default function SearchPage() {
     const [filters, setFilters] = useState({
         type: searchParams.get('type') || '',
         searchTerm: searchParams.get('q') || '',
-        radiusKm: '',
+        radiusKm: '8', // Inițializat cu distanța maximă 8km
+        facilities: [] as string[], // Adăugat pentru facilități
     });
+    
     const [userLocation, setUserLocation] = useState<{
         lat: number; lng: number
     } | null>(null);
 
-    const { data: locations, isLoading } = useQuery({
-        queryKey: ['locations', filters, userLocation],
+    // Am desfăcut dependențele în queryKey pentru a face trigger corect la refresh când miști slider-ul
+    const { data: rawLocations, isLoading } = useQuery({
+        queryKey: ['locations', filters.type, filters.searchTerm, filters.radiusKm, userLocation],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (filters.type) params.set('type', filters.type);
@@ -37,13 +40,27 @@ export default function SearchPage() {
         },
     });
 
+    // Filtrare frontend: Locația trebuie să aibă TOATE facilitățile selectate
+    const locations = rawLocations?.filter(loc => {
+        if (!filters.facilities || filters.facilities.length === 0) return true;
+        if (!loc.facilities) return false;
+        return filters.facilities.every(f => loc.facilities.includes(f));
+    });
+
     const handleGetLocation = () => {
+        // Dacă locația este deja activată, o dezactivăm
+        if (userLocation) {
+            setUserLocation(null);
+            return;
+        }
+
+        // Dacă nu este activată, o cerem de la browser
         navigator.geolocation.getCurrentPosition(
             (pos) => setUserLocation({
                 lat: pos.coords.latitude,
                 lng: pos.coords.longitude,
             }),
-            () => alert('Nu am putut obține locația ta')
+            () => alert('Nu am putut obține locația ta. Te rugăm să permiți accesul în browser.')
         );
     };
 
@@ -51,10 +68,10 @@ export default function SearchPage() {
         <div className="min-h-screen bg-gray-50">
             <Navbar />
             <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="flex gap-8">
+                <div className="flex flex-col md:flex-row gap-8">
 
                     {/* Sidebar filtre */}
-                    <aside className="w-72 flex-shrink-0">
+                    <aside className="w-full md:w-72 flex-shrink-0">
                         <SearchFilters
                             filters={filters}
                             onFiltersChange={setFilters}
@@ -81,7 +98,7 @@ export default function SearchPage() {
                                 <MapPin size={48} className="mx-auto mb-4 opacity-50" />
                                 <p className="text-lg">Nicio locație găsită</p>
                                 <p className="text-sm mt-1">
-                                    Încearcă să modifici filtrele
+                                    Încearcă să modifici filtrele sau să mărești raza.
                                 </p>
                             </div>
                         ) : (

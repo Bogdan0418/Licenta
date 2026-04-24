@@ -21,6 +21,12 @@ interface Props {
 }
 
 export function LocationInfo({ location }: Props) {
+    // Generăm un link inteligent. Dacă avem coordonate (aduse de la backend), le folosim pe acelea.
+    // Dacă nu le avem (pentru locații înregistrate anterior update-ului), facem fallback la o căutare text standard.
+    const googleMapsLink = (location as any).latitude && (location as any).longitude
+        ? `https://www.google.com/maps/search/?api=1&query=${(location as any).latitude},${(location as any).longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`;
+
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
 
@@ -46,10 +52,18 @@ export function LocationInfo({ location }: Props) {
                         )}
                     </div>
                     <span>•</span>
-                    <div className="flex items-center gap-1">
-                        <MapPin size={14} />
-                        {location.address}
-                    </div>
+                    
+                    {/* ZONA MODIFICATĂ: Link către Google Maps */}
+                    <a 
+                        href={googleMapsLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-pointer group"
+                        title="Deschide locația în Google Maps"
+                    >
+                        <MapPin size={14} className="group-hover:text-indigo-600" />
+                        <span className="underline decoration-dashed underline-offset-2">{location.address}</span>
+                    </a>
                 </div>
             </div>
 
