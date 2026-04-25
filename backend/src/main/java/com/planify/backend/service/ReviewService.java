@@ -158,7 +158,8 @@ public class ReviewService {
                 r.getComment(),
                 r.getCreatedAt(),
                 reviewerName,
-                r.getBooking().getId()
+                r.getBooking().getId(),
+                r.getIsReported()
         );
     }
 }

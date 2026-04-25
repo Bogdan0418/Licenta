@@ -11,5 +11,6 @@ public record ReviewResponse(
         String comment,
         LocalDateTime createdAt,
         String reviewerName,  // numele celui care a scris review-ul
-        Long bookingId
+        Long bookingId,
+        Boolean isReported
 ) {}

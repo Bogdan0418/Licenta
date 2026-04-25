@@ -116,4 +116,19 @@ public class ReviewController {
         Long locationId = extractId(httpRequest);
         return ResponseEntity.ok(reviewService.getLocationGivenReviews(locationId));
     }
+
+    // Raportare review de către LOCAȚIE
+    @PostMapping("/api/location/reviews/{reviewId}/report")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> reportReviewLocation(
+            @PathVariable Long reviewId,
+            HttpServletRequest httpRequest) {
+        try {
+            Long locationId = extractId(httpRequest);
+            reviewService.reportReview(reviewId, locationId);
+            return ResponseEntity.ok("Review-ul a fost raportat de locație");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

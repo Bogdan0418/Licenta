@@ -3,6 +3,8 @@ package com.planify.backend.service;
 import com.planify.backend.dto.response.*;
 import com.planify.backend.entity.*;
 import com.planify.backend.entity.enums.LocationStatus;
+import com.planify.backend.entity.enums.ReviewerType;
+import com.planify.backend.entity.enums.UserRole;
 import com.planify.backend.entity.enums.UserStatus;
 import com.planify.backend.repository.*;
 import org.springframework.stereotype.Service;
@@ -191,18 +193,39 @@ public class AdminService {
     }
 
     // Review-uri raportate
-    public List<ReviewResponse> getReportedReviews() {
+    @Transactional(readOnly = true)
+    public List<AdminReportedReviewResponse> getReportedReviews() {
         return reviewRepository.findByIsReportedTrue()
                 .stream()
-                .map(r -> new ReviewResponse(
-                        r.getId(),
-                        r.getReviewerType(),
-                        r.getRating(),
-                        r.getComment(),
-                        r.getCreatedAt(),
-                        r.getReviewerType().name(),
-                        r.getBooking().getId()
-                ))
+                .map(r -> {
+                    Long authorId;
+                    String authorPublicId;
+                    String authorName;
+
+                    if (r.getReviewerType() == ReviewerType.USER) {
+                        User u = r.getBooking().getUser();
+                        authorId = u.getId();
+                        authorPublicId = u.getPublicId();
+                        authorName = u.getFirstName() + " " + u.getLastName();
+                    } else {
+                        Location l = r.getBooking().getZone().getLocation();
+                        authorId = l.getId();
+                        authorPublicId = l.getPublicId();
+                        authorName = l.getDisplayName();
+                    }
+
+                    return new AdminReportedReviewResponse(
+                            r.getId(),
+                            r.getReviewerType().name(),
+                            authorId,
+                            authorPublicId,
+                            authorName,
+                            r.getRating(),
+                            r.getComment(),
+                            r.getCreatedAt(),
+                            r.getBooking().getId()
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
@@ -293,7 +316,7 @@ public class AdminService {
     // Obținerea statisticilor pentru Dashboard-ul de Admin
     @Transactional(readOnly = true)
     public AdminStatisticsResponse getStatistics() {
-        long totalUsers = userRepository.count();
+        long totalUsers = userRepository.countByRoleNot(UserRole.ADMIN);
         long blockedUsers = userRepository.countByStatus(UserStatus.BLOCKED);
 
         long totalLocations = locationRepository.count();
@@ -313,5 +336,24 @@ public class AdminService {
                 totalBookings,
                 reportedReviews
         );
+    }
+
+    public AdminBlockedAccountsResponse getBlockedAccounts() {
+        List<AdminUserResponse> users = userRepository.findByStatus(UserStatus.BLOCKED)
+                .stream().map(this::toAdminUserResponse).toList();
+
+        List<AdminLocationResponse> locations = locationRepository.findByStatus(LocationStatus.BLOCKED)
+                .stream().map(this::toAdminLocationResponse).toList();
+
+        return new AdminBlockedAccountsResponse(users, locations);
+    }
+
+    // Toți utilizatorii (pentru explorator)
+    public List<AdminUserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .filter(u -> u.getRole() != UserRole.ADMIN)
+                .map(this::toAdminUserResponse)
+                .collect(Collectors.toList());
     }
 }

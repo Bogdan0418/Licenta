@@ -1,10 +1,12 @@
 package com.planify.backend.repository;
 
 import com.planify.backend.entity.User;
+import com.planify.backend.entity.enums.UserRole;
 import com.planify.backend.entity.enums.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -29,4 +31,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByCnpHash(String cnpHash);
 
     long countByStatus(UserStatus status);
+
+    List<User> findByStatus(UserStatus status);
+
+    long countByRoleNot(UserRole role);
 }

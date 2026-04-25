@@ -147,7 +147,7 @@ public class AdminController {
 
     // ── Review-uri raportate ──────────────────────────────────────────────
     @GetMapping("/reviews/reported")
-    public ResponseEntity<List<ReviewResponse>> getReportedReviews() {
+    public ResponseEntity<List<AdminReportedReviewResponse>> getReportedReviews() {
         return ResponseEntity.ok(adminService.getReportedReviews());
     }
 
@@ -182,5 +182,16 @@ public class AdminController {
     @GetMapping("/statistics")
     public ResponseEntity<AdminStatisticsResponse> getDashboardStatistics() {
         return ResponseEntity.ok(adminService.getStatistics());
+    }
+
+    @GetMapping("/accounts/blocked")
+    public ResponseEntity<AdminBlockedAccountsResponse> getBlockedAccounts() {
+        return ResponseEntity.ok(adminService.getBlockedAccounts());
+    }
+
+    // ── Toți utilizatorii ─────────────────────────────────────────────────
+    @GetMapping("/users")
+    public ResponseEntity<List<AdminUserResponse>> getAllUsers() {
+        return ResponseEntity.ok(adminService.getAllUsers());
     }
 }

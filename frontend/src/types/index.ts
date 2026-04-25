@@ -80,6 +80,7 @@ export interface Review {
     createdAt: string;
     reviewerName: string;
     bookingId: number;
+    isReported: boolean;
 }
 
 export interface AdminLocation {
@@ -119,4 +120,37 @@ export interface AdminStatistics {
     verifiedLocations: number;
     totalBookings: number;
     reportedReviews: number;
+}
+
+export interface AdminReportedReview {
+    id: number;
+    reviewerType: 'USER' | 'LOCATION';
+    authorId: number;
+    authorPublicId: string;
+    authorName: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+    bookingId: number;
+}
+
+export interface AdminUser {
+    id: number;
+    publicId: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+    phone: string;
+    birthDate: string | null;
+    role: string;
+    status: string;
+    rating: number;
+    ratingCount: number;
+    createdAt: string;
+}
+
+export interface AdminBlockedAccounts {
+    blockedUsers: AdminUser[];
+    blockedLocations: AdminLocation[];
 }
