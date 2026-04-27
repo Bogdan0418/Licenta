@@ -194,4 +194,15 @@ public class AdminController {
     public ResponseEntity<List<AdminUserResponse>> getAllUsers() {
         return ResponseEntity.ok(adminService.getAllUsers());
     }
+
+    // În AdminController.java
+    @GetMapping("/locations/low-rating")
+    public ResponseEntity<List<AdminLocationResponse>> getLowRatingLocations() {
+        return ResponseEntity.ok(adminService.getLowRatingLocations());
+    }
+
+    @GetMapping("/users/low-rating")
+    public ResponseEntity<List<AdminUserResponse>> getLowRatingUsers() {
+        return ResponseEntity.ok(adminService.getLowRatingUsers());
+    }
 }

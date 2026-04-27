@@ -100,6 +100,7 @@ export interface AdminLocation {
     createdAt: string;
     verifiedAt: string | null;
     photoCount: number;
+    rating?: number;
 }
 
 export interface AuditLog {
@@ -145,7 +146,7 @@ export interface AdminUser {
     birthDate: string | null;
     role: string;
     status: string;
-    rating: number;
+    rating?: number;
     ratingCount: number;
     createdAt: string;
 }

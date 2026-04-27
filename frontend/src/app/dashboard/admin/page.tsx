@@ -20,8 +20,8 @@ export default function AdminDashboardPage() {
     const [blockModal, setBlockModal] = useState<{ type: 'USER' | 'LOCATION', id: number, name: string } | null>(null);
     const [blockReason, setBlockReason] = useState('');
     
-    // Tab state
-    const [activeTab, setActiveTab] = useState<'directory' | 'pending' | 'audit' | 'reviews' | 'blocked'>('directory');
+    // Tab state (Adăugat 'alerts')
+    const [activeTab, setActiveTab] = useState<'directory' | 'pending' | 'audit' | 'reviews' | 'blocked' | 'alerts'>('directory');
 
     // Explorer (Search) states
     const [searchTerm, setSearchTerm] = useState('');
@@ -70,6 +70,19 @@ export default function AdminDashboardPage() {
         enabled: !!user,
     });
 
+    // --- NOILE QUERIES PENTRU RATING ---
+    const { data: lowRatingLocations, isLoading: lowLocLoading } = useQuery({
+        queryKey: ['low-rating-locations'],
+        queryFn: async () => (await api.get('/api/admin/locations/low-rating')).data as AdminLocation[],
+        enabled: !!user,
+    });
+
+    const { data: lowRatingUsers, isLoading: lowUsrLoading } = useQuery({
+        queryKey: ['low-rating-users'],
+        queryFn: async () => (await api.get('/api/admin/users/low-rating')).data as AdminUser[],
+        enabled: !!user,
+    });
+
     /* --- MUTATIONS --- */
     const invalidateAll = () => {
         queryClient.invalidateQueries({ queryKey: ['pending-locations'] });
@@ -79,6 +92,9 @@ export default function AdminDashboardPage() {
         queryClient.invalidateQueries({ queryKey: ['blocked-accounts'] });
         queryClient.invalidateQueries({ queryKey: ['all-users'] });
         queryClient.invalidateQueries({ queryKey: ['all-locations'] });
+        // Invalidare pentru noile liste de rating
+        queryClient.invalidateQueries({ queryKey: ['low-rating-locations'] });
+        queryClient.invalidateQueries({ queryKey: ['low-rating-users'] });
     };
 
     const { mutate: approve, isPending: approving } = useMutation({
@@ -130,7 +146,7 @@ export default function AdminDashboardPage() {
 
         if (filterType === 'ALL' || filterType === 'USER') {
             const u = allUsers?.filter(user => 
-                user.role !== 'ADMIN' && // <--- ADAUGĂ ACEASTĂ LINIE PENTRU A ASCUNDE ADMINUL
+                user.role !== 'ADMIN' && 
                 (user.publicId.toLowerCase().includes(query) ||
                 user.firstName.toLowerCase().includes(query) ||
                 user.lastName.toLowerCase().includes(query) ||
@@ -289,6 +305,20 @@ export default function AdminDashboardPage() {
                         {blockedData && ((blockedData.blockedUsers?.length || 0) + (blockedData.blockedLocations?.length || 0) > 0) && (
                             <span className="bg-red-100 text-red-600 text-xs px-1.5 py-0.5 rounded-full">
                                 {(blockedData.blockedUsers?.length || 0) + (blockedData.blockedLocations?.length || 0)}
+                            </span>
+                        )}
+                    </button>
+                    {/* Noul Tab pentru Alerte */}
+                    <button
+                        onClick={() => setActiveTab('alerts')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                            activeTab === 'alerts' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        ⚠️ Alerte Rating
+                        {((lowRatingLocations?.length || 0) + (lowRatingUsers?.length || 0)) > 0 && (
+                            <span className="bg-orange-100 text-orange-600 text-xs px-1.5 py-0.5 rounded-full">
+                                {(lowRatingLocations?.length || 0) + (lowRatingUsers?.length || 0)}
                             </span>
                         )}
                     </button>
@@ -535,6 +565,79 @@ export default function AdminDashboardPage() {
                                                         title="Deblochează locație"
                                                     >
                                                         <Unlock size={18} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* --- TAB: ALERTE RATING (< 2.0) --- */}
+                {activeTab === 'alerts' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-8">
+                        {(lowLocLoading || lowUsrLoading) ? (
+                            <div className="flex justify-center py-8">
+                                <Loader2 className="animate-spin text-orange-400" size={24} />
+                            </div>
+                        ) : (
+                            <>
+                                {/* Secțiunea Locații */}
+                                <div>
+                                    <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                        <MapPin size={18} className="text-orange-500" />
+                                        Locații cu Rating Critic (&lt; 2.0)
+                                    </h2>
+                                    {!lowRatingLocations || lowRatingLocations.length === 0 ? (
+                                        <p className="text-gray-400 text-sm italic">Nicio locație cu rating critic momentan.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {lowRatingLocations.map(loc => (
+                                                <div key={loc.id} className="border border-orange-100 rounded-lg p-4 flex justify-between items-center bg-orange-50/30">
+                                                    <div>
+                                                        <p className="font-medium text-gray-800">{loc.displayName}</p>
+                                                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                            ⭐ <span className="font-bold text-orange-600">{Number(loc.rating)?.toFixed(1) || '0.0'}</span> • {loc.ownerEmail}
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setBlockModal({ type: 'LOCATION', id: loc.id, name: loc.displayName })}
+                                                        className="text-xs px-3 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors shadow-sm"
+                                                    >
+                                                        Blochează
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Secțiunea Utilizatori */}
+                                <div>
+                                    <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2 mt-8">
+                                        <Users size={18} className="text-orange-500" />
+                                        Utilizatori cu Rating Critic (&lt; 2.0)
+                                    </h2>
+                                    {!lowRatingUsers || lowRatingUsers.length === 0 ? (
+                                        <p className="text-gray-400 text-sm italic">Niciun utilizator cu rating critic momentan.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {lowRatingUsers.map(u => (
+                                                <div key={u.id} className="border border-orange-100 rounded-lg p-4 flex justify-between items-center bg-orange-50/30">
+                                                    <div>
+                                                        <p className="font-medium text-gray-800">{u.firstName} {u.lastName}</p>
+                                                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                            ⭐ <span className="font-bold text-orange-600">{Number(u.rating)?.toFixed(1) || '0.0'}</span> • {u.email}
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setBlockModal({ type: 'USER', id: u.id, name: `${u.firstName} ${u.lastName}` })}
+                                                        className="text-xs px-3 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors shadow-sm"
+                                                    >
+                                                        Blochează
                                                     </button>
                                                 </div>
                                             ))}

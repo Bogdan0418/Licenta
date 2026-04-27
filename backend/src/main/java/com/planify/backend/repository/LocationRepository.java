@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,7 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     boolean existsByCui(String cui);
     List<Location> findByStatus(LocationStatus status);
     long countByStatus(LocationStatus status);
+    List<Location> findByRatingLessThanAndStatus(BigDecimal rating, LocationStatus status);
 
     // Query Haversine — calculeaza distanta in km intre doua coordonate GPS
     // Returneaza locatii in raza specificata, ordonate dupa distanța

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.planify.backend.dto.response.AdminStatisticsResponse;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -290,7 +291,8 @@ public class AdminService {
                 l.getBlockedReason(),
                 l.getCreatedAt(),
                 l.getVerifiedAt(),
-                photoCount
+                photoCount,
+                l.getRating()
         );
     }
 
@@ -355,5 +357,24 @@ public class AdminService {
                 .filter(u -> u.getRole() != UserRole.ADMIN)
                 .map(this::toAdminUserResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminLocationResponse> getLowRatingLocations() {
+        BigDecimal threshold = new BigDecimal("2.0");
+        // Luăm doar locațiile verificate care au probleme
+        return locationRepository.findByRatingLessThanAndStatus(threshold, LocationStatus.VERIFIED)
+                .stream()
+                .map(this::toAdminLocationResponse) // Refolosim metoda deja existentă
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminUserResponse> getLowRatingUsers() {
+        BigDecimal threshold = new BigDecimal("2.0");
+        return userRepository.findByRatingLessThan(threshold)
+                .stream()
+                .map(this::toAdminUserResponse) // Refolosim metoda deja existentă
+                .toList();
     }
 }

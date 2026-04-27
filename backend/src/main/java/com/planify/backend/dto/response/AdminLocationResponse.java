@@ -3,6 +3,7 @@ package com.planify.backend.dto.response;
 import com.planify.backend.entity.enums.LocationStatus;
 import com.planify.backend.entity.enums.LocationType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record AdminLocationResponse(
@@ -21,5 +22,6 @@ public record AdminLocationResponse(
         String blockedReason,
         LocalDateTime createdAt,
         LocalDateTime verifiedAt,
-        int photoCount
+        int photoCount,
+        BigDecimal rating
 ) {}
