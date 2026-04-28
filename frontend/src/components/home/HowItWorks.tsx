@@ -3,44 +3,46 @@ import { Search, CalendarCheck, Star } from 'lucide-react';
 const steps = [
     {
         icon: Search,
-        title: 'Caută',
-        description: 'Folosește filtrele pentru a găsi locația perfectă după tip, facilități și locație',
-        color: 'bg-indigo-100 text-indigo-600',
-        step: '1',
+        title: 'Explorează',
+        description: 'O selecție riguroasă a celor mai exclusiviste locații, filtrată exact după preferințele tale.',
+        step: '01',
     },
     {
         icon: CalendarCheck,
         title: 'Rezervă',
-        description: 'Alege data, ora și grupul tău. Confirmarea vine instant prin SMS și email',
-        color: 'bg-orange-100 text-orange-600',
-        step: '2',
+        description: 'Acces instant, fără bătăi de cap. Confirmarea ajunge direct pe dispozitivul tău în câteva secunde.',
+        step: '02',
     },
     {
         icon: Star,
-        title: 'Bucură-te',
-        description: 'Du-te la locație și după, lasă un review pentru a ajuta comunitatea',
-        color: 'bg-green-100 text-green-600',
-        step: '3',
+        title: 'Experimentează',
+        description: 'Bucură-te de atmosfera locației și împărtășește experiența ta cu restul comunității.',
+        step: '03',
     },
 ];
 
 export function HowItWorks() {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {steps.map(({ icon: Icon, title, description, color, step }) => (
-                <div key={step} className="flex flex-col items-center text-center">
-                    <div className="relative mb-6">
-                        <div className={`p-5 rounded-full ${color}`}>
-                            <Icon size={32} />
-                        </div>
-                        <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
-                            {step}
-                        </span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+            {/* O linie subtilă care unește pașii pe desktop */}
+            <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent z-0" />
+
+            {steps.map(({ icon: Icon, title, description, step }) => (
+                <div key={step} className="flex flex-col items-center text-center relative z-10 group">
+                    {/* Numărul de background (urilaj) */}
+                    <div className="absolute -top-10 text-8xl font-serif font-bold text-white/[0.03] select-none transition-all duration-500 group-hover:text-white/[0.08] group-hover:-translate-y-2">
+                        {step}
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+
+                    <div className="mb-8 p-4 rounded-full border border-white/5 bg-[#0a0a0b] shadow-2xl transition-all duration-300 group-hover:border-[#C5A059]/30">
+                        <Icon size={28} className="text-[#C5A059] opacity-80 group-hover:opacity-100" />
+                    </div>
+                    
+                    <h3 className="text-xl font-serif text-white mb-4 tracking-wide">
                         {title}
                     </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">
+                    
+                    <p className="text-zinc-400 font-light text-sm leading-relaxed max-w-[250px]">
                         {description}
                     </p>
                 </div>

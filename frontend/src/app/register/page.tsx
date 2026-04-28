@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { MapPin, User, Building2 } from 'lucide-react';
 import { RegisterUserForm } from '@/components/auth/RegisterUserForm';
 import { RegisterLocationForm } from '@/components/auth/RegisterLocationForm';
@@ -11,29 +10,45 @@ export default function RegisterPage() {
     const [tab, setTab] = useState<'user' | 'location'>('user');
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-            <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-lg">
+        <div className="min-h-screen relative flex items-center justify-center px-4 py-12 overflow-hidden">
+            {/* Background Cinematic */}
+            <div 
+                className="absolute inset-0 z-0 bg-cover bg-center fixed"
+                style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1920&auto=format&fit=crop")' }}
+            />
+            {/* Overlay întunecat cu blur subtil */}
+            <div className="absolute inset-0 z-0 bg-[#0a0a0b]/85 backdrop-blur-sm fixed" />
 
-                {/* Logo */}
-                <div className="flex items-center justify-center gap-2 mb-8">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
-                        <MapPin size={20} className="text-white" />
+            {/* Container Principal (Glassmorphism) - Mai lat pentru formulare mai mari */}
+            <div className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 sm:p-10 w-full max-w-xl shadow-2xl animate-slide-up my-auto">
+                
+                {/* Logo Premium */}
+                <Link href="/" className="flex items-center justify-center gap-3 mb-8 group w-fit mx-auto">
+                    <div className="border border-[#C5A059]/30 p-2 rounded-lg group-hover:border-[#C5A059] transition-colors">
+                        <MapPin size={22} className="text-[#C5A059]" />
                     </div>
-                    <span className="text-2xl font-bold text-indigo-600">Planify</span>
+                    <span className="text-3xl font-serif text-white tracking-wide">
+                        Planify<span className="text-[#C5A059]">.</span>
+                    </span>
+                </Link>
+
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-serif text-white mb-2 tracking-wide">
+                        Creează un cont
+                    </h1>
+                    <p className="text-zinc-400 text-sm font-light">
+                        Alătură-te comunității și descoperă orașul
+                    </p>
                 </div>
 
-                <h1 className="text-xl font-semibold text-gray-800 mb-6">
-                    Creează un cont
-                </h1>
-
-                {/* Tabs */}
-                <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
+                {/* Tabs Premium */}
+                <div className="flex gap-2 mb-8 bg-white/5 p-1.5 rounded-xl border border-white/10">
                     <button
                         onClick={() => setTab('user')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
                             tab === 'user'
-                                ? 'bg-white text-indigo-600 shadow-sm'
-                                : 'text-gray-500'
+                                ? 'bg-[#C5A059] text-black shadow-lg'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/5'
                         }`}
                     >
                         <User size={16} />
@@ -41,10 +56,10 @@ export default function RegisterPage() {
                     </button>
                     <button
                         onClick={() => setTab('location')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
                             tab === 'location'
-                                ? 'bg-white text-indigo-600 shadow-sm'
-                                : 'text-gray-500'
+                                ? 'bg-[#C5A059] text-black shadow-lg'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/5'
                         }`}
                     >
                         <Building2 size={16} />
@@ -52,12 +67,14 @@ export default function RegisterPage() {
                     </button>
                 </div>
 
-                {tab === 'user' ? <RegisterUserForm /> : <RegisterLocationForm />}
+                {/* Container pentru formulare cu înălțime fluidă */}
+                <div className="transition-all duration-300">
+                    {tab === 'user' ? <RegisterUserForm /> : <RegisterLocationForm />}
+                </div>
 
-                <p className="text-center text-sm text-gray-400 mt-6">
+                <p className="text-center text-sm text-zinc-400 mt-8 font-light border-t border-white/10 pt-6">
                     Ai deja cont?{' '}
-                    <Link href="/login"
-                        className="text-indigo-600 hover:underline font-medium">
+                    <Link href="/login" className="text-[#C5A059] hover:text-white transition-colors font-medium">
                         Autentifică-te
                     </Link>
                 </p>

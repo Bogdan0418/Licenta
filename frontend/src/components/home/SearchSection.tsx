@@ -16,19 +16,21 @@ export function SearchSection() {
     };
 
     return (
-        <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl mx-auto">
-            <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Caută restaurante, baruri, cluburi..."
-                className="flex-1 px-5 py-3 rounded-xl text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
+        <form onSubmit={handleSearch} className="flex gap-3 max-w-3xl mx-auto bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-xl shadow-2xl">
+            <div className="flex-1 flex items-center px-4">
+                <Search size={20} className="text-zinc-400 mr-3" />
+                <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Ce cauți? (ex: Restaurant italian, rooftop bar...)"
+                    className="w-full bg-transparent text-white placeholder-zinc-500 font-light text-base focus:outline-none"
+                />
+            </div>
             <button
                 type="submit"
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-medium"
+                className="bg-[#C5A059] hover:bg-[#b08d4a] text-black px-8 py-3.5 rounded-xl flex items-center gap-2 font-medium transition-all duration-300"
             >
-                <Search size={18} />
                 Caută
             </button>
         </form>

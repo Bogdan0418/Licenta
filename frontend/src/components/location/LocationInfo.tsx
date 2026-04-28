@@ -8,7 +8,6 @@ const facilityIcons: Record<string, any> = {
     PARKING: Car,
 };
 
-// Array fix pentru a forța afișarea zilelor în ordinea corectă
 const DAYS_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 const dayLabels: Record<string, string> = {
@@ -21,66 +20,64 @@ interface Props {
 }
 
 export function LocationInfo({ location }: Props) {
-    // Generăm un link inteligent. Dacă avem coordonate (aduse de la backend), le folosim pe acelea.
-    // Dacă nu le avem (pentru locații înregistrate anterior update-ului), facem fallback la o căutare text standard.
     const googleMapsLink = (location as any).latitude && (location as any).longitude
-        ? `https://www.google.com/maps/search/?api=1&query=${(location as any).latitude},${(location as any).longitude}`
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`;
+        ? `http://maps.google.com/?q=${(location as any).latitude},${(location as any).longitude}`
+        : `http://maps.google.com/?q=${encodeURIComponent(location.address)}`;
 
     return (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+        <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 sm:p-8 space-y-8">
 
             {/* Titlu și rating */}
             <div>
-                <div className="flex items-start justify-between gap-3 mb-1">
-                    <h1 className="text-2xl font-bold text-gray-800">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                    <h1 className="text-3xl font-serif text-white tracking-wide">
                         {location.displayName}
                     </h1>
-                    <span className="bg-indigo-50 text-indigo-600 text-sm px-3 py-1 rounded-full whitespace-nowrap">
+                    <span className="bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-md whitespace-nowrap">
                         {location.type}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                        <span className="font-medium text-gray-700">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400 font-light">
+                    <div className="flex items-center gap-1.5">
+                        <Star size={16} className="text-[#C5A059] fill-[#C5A059]" />
+                        <span className="font-medium text-white">
                             {location.rating > 0 ? location.rating.toFixed(1) : 'Nou'}
                         </span>
                         {location.ratingCount > 0 && (
-                            <span>({location.ratingCount} recenzii)</span>
+                            <span className="text-zinc-500">({location.ratingCount} recenzii)</span>
                         )}
                     </div>
-                    <span>•</span>
-                    
-                    {/* ZONA MODIFICATĂ: Link către Google Maps */}
+                    <span className="text-white/20">•</span>
                     <a 
                         href={googleMapsLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-pointer group"
+                        className="flex items-center gap-1.5 hover:text-[#C5A059] transition-colors cursor-pointer group"
                         title="Deschide locația în Google Maps"
                     >
-                        <MapPin size={14} className="group-hover:text-indigo-600" />
-                        <span className="underline decoration-dashed underline-offset-2">{location.address}</span>
+                        <MapPin size={16} className="text-zinc-500 group-hover:text-[#C5A059] transition-colors" />
+                        <span className="underline decoration-dashed decoration-white/30 underline-offset-4">{location.address}</span>
                     </a>
                 </div>
             </div>
 
             {/* Descriere */}
             {location.description && (
-                <p className="text-gray-600 text-sm leading-relaxed">
-                    {location.description}
-                </p>
+                <div className="border-y border-white/5 py-6">
+                    <p className="text-zinc-300 text-sm leading-relaxed font-light whitespace-pre-wrap">
+                        {location.description}
+                    </p>
+                </div>
             )}
 
             {/* Facilități */}
             {location.facilities && location.facilities.length > 0 && (
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                    <h3 className="text-xs font-serif text-[#C5A059] uppercase tracking-widest mb-4">
                         Facilități disponibile
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2.5">
                         {location.facilities.map((f) => {
                             const Icon = facilityIcons[f] || Check; 
                             const displayLabel = facilityLabels[f] || f; 
@@ -88,9 +85,9 @@ export function LocationInfo({ location }: Props) {
                             return (
                                 <span
                                     key={f}
-                                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border bg-gray-50 text-gray-700 border-gray-100"
+                                    className="flex items-center gap-2 text-xs px-3.5 py-2 rounded-lg bg-white/5 text-zinc-300 border border-white/10"
                                 >
-                                    <Icon size={12} className="text-gray-500" />
+                                    <Icon size={14} className="text-zinc-500" />
                                     {displayLabel}
                                 </span>
                             );
@@ -101,27 +98,26 @@ export function LocationInfo({ location }: Props) {
 
             {/* Programul pe fiecare Zonă */}
             {location.zones && location.zones.length > 0 && (
-                <div className="border-t border-gray-100 pt-4 mt-2">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                        <Clock size={14} className="text-indigo-600" />
-                        Program de funcționare pe zone
+                <div className="pt-2">
+                    <h3 className="text-xs font-serif text-[#C5A059] uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Clock size={16} /> Program de funcționare
                     </h3>
                     
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {location.zones.map(zone => (
-                            <div key={zone.id} className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                <h4 className="text-sm font-semibold text-gray-800 mb-3">{zone.name}</h4>
-                                <div className="flex flex-col gap-y-2">
+                            <div key={zone.id} className="bg-[#121214] p-5 rounded-xl border border-white/5">
+                                <h4 className="text-sm font-bold text-white mb-4 border-b border-white/5 pb-2">{zone.name}</h4>
+                                <div className="flex flex-col gap-y-1.5">
                                     {DAYS_ORDER.map((dayKey) => {
-                                        // Citim valoarea din schedule. Dacă nu există, punem implicit 'Închis'
                                         const hours = zone.schedule?.[dayKey] || 'Închis';
+                                        const isClosed = hours === 'Închis';
                                         
                                         return (
-                                            <div key={dayKey} className="flex justify-between text-sm py-1 border-b border-gray-200/50 last:border-0">
-                                                <span className="text-gray-600 w-24">
+                                            <div key={dayKey} className="flex justify-between text-xs py-1 text-zinc-400">
+                                                <span className="font-light w-24">
                                                     {dayLabels[dayKey]}
                                                 </span>
-                                                <span className={`font-medium ${hours === 'Închis' ? 'text-red-500' : 'text-gray-800'}`}>
+                                                <span className={`font-medium ${isClosed ? 'text-red-400/80' : 'text-zinc-200'}`}>
                                                     {hours}
                                                 </span>
                                             </div>
@@ -136,9 +132,11 @@ export function LocationInfo({ location }: Props) {
 
             {/* Contact */}
             {location.publicPhone && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 pt-4 border-t border-gray-100">
-                    <Phone size={14} className="text-indigo-600" />
-                    <span className="font-medium">Contact:</span> {location.publicPhone}
+                <div className="flex items-center gap-3 text-sm text-zinc-300 pt-6 border-t border-white/5">
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+                        <Phone size={16} className="text-[#C5A059]" />
+                    </div>
+                    <span className="font-light tracking-wide">{location.publicPhone}</span>
                 </div>
             )}
         </div>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, MapPin } from 'lucide-react';
 import api from '@/lib/api';
+import Link from 'next/link';
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -17,7 +18,17 @@ export default function ResetPasswordPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     if (!token) {
-        return <div className="text-center py-20 text-red-500">Link-ul de resetare este invalid sau lipsește.</div>;
+        return (
+            <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center px-4">
+                <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+                    <h2 className="text-xl font-serif text-red-400 mb-2">Eroare</h2>
+                    <p className="text-zinc-400 font-light mb-6">Link-ul de resetare este invalid sau lipsește.</p>
+                    <Link href="/login" className="text-[#C5A059] hover:text-white transition-colors">
+                        Înapoi la login
+                    </Link>
+                </div>
+            </div>
+        );
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -47,45 +58,64 @@ export default function ResetPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-md">
-                <div className="flex items-center justify-center gap-2 mb-8">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
-                        <MapPin size={20} className="text-white" />
+        <div className="min-h-screen relative flex items-center justify-center px-4 overflow-hidden">
+            {/* Background Cinematic */}
+            <div 
+                className="absolute inset-0 z-0 bg-cover bg-center"
+                style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1920&auto=format&fit=crop")' }}
+            />
+            {/* Overlay întunecat cu blur subtil */}
+            <div className="absolute inset-0 z-0 bg-[#0a0a0b]/85 backdrop-blur-sm" />
+
+            <div className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 sm:p-10 w-full max-w-md shadow-2xl animate-slide-up">
+                
+                {/* Logo Premium */}
+                <Link href="/" className="flex items-center justify-center gap-3 mb-10 group w-fit mx-auto">
+                    <div className="border border-[#C5A059]/30 p-2 rounded-lg group-hover:border-[#C5A059] transition-colors">
+                        <MapPin size={22} className="text-[#C5A059]" />
                     </div>
-                    <span className="text-2xl font-bold text-indigo-600">Planify</span>
+                    <span className="text-3xl font-serif text-white tracking-wide">
+                        Planify<span className="text-[#C5A059]">.</span>
+                    </span>
+                </Link>
+
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-serif text-white mb-2 tracking-wide">Setează o nouă parolă</h1>
+                    <p className="text-zinc-400 text-sm font-light">Asigură-te că introduci o parolă sigură.</p>
                 </div>
 
-                <h1 className="text-xl font-semibold text-gray-800 mb-1">Setează o nouă parolă</h1>
+                {error && <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm px-4 py-3 rounded-lg mb-6 backdrop-blur-md text-center">{error}</div>}
+                {message && <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 text-sm px-4 py-3 rounded-lg mb-6 backdrop-blur-md text-center">{message}</div>}
 
-                {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>}
-                {message && <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg mb-4">{message}</div>}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Parola nouă</label>
+                        <label className="text-sm font-light text-zinc-300 mb-2 block">Parola nouă</label>
                         <input
                             type="password"
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Confirmă parola nouă</label>
+                        <label className="text-sm font-light text-zinc-300 mb-2 block">Confirmă parola nouă</label>
                         <input
                             type="password"
                             required
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                         />
                     </div>
-                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
-                        {isLoading && <Loader2 size={16} className="animate-spin" />}
+                    <button 
+                        type="submit" 
+                        disabled={isLoading} 
+                        className="w-full bg-[#C5A059] hover:bg-[#b08d4a] disabled:opacity-60 text-black py-3.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-300 mt-2"
+                    >
+                        {isLoading && <Loader2 size={18} className="animate-spin" />}
                         Schimbă parola
                     </button>
                 </form>

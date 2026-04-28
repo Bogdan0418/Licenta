@@ -61,33 +61,31 @@ export function RegisterUserForm() {
     ];
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-slide-up">
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
+                <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm px-4 py-3 rounded-lg backdrop-blur-md text-center">
                     {error}
                 </div>
             )}
             {success && (
-                <div className="bg-green-50 border border-green-200 text-green-600 text-sm px-4 py-3 rounded-lg">
+                <div className="bg-[#C5A059]/10 border border-[#C5A059]/50 text-[#C5A059] text-sm px-4 py-3 rounded-lg backdrop-blur-md text-center">
                     {success}
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {fields.slice(0, 2).map(({ name, label, placeholder }) => (
                     <div key={name}>
-                        <label className="text-xs font-medium text-gray-600 mb-1 block">
+                        <label className="text-xs font-light text-zinc-400 mb-1.5 block uppercase tracking-wider">
                             {label}
                         </label>
                         <input
                             {...register(name)}
                             placeholder={placeholder}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                         />
                         {errors[name] && (
-                            <p className="text-red-500 text-xs mt-0.5">
-                                {errors[name]?.message}
-                            </p>
+                            <p className="text-red-400 text-xs mt-1.5 ml-1">{errors[name]?.message}</p>
                         )}
                     </div>
                 ))}
@@ -95,19 +93,17 @@ export function RegisterUserForm() {
 
             {fields.slice(2).map(({ name, label, placeholder, type = 'text' }) => (
                 <div key={name}>
-                    <label className="text-xs font-medium text-gray-600 mb-1 block">
+                    <label className="text-xs font-light text-zinc-400 mb-1.5 block uppercase tracking-wider">
                         {label}
                     </label>
                     <input
                         {...register(name)}
                         type={type}
                         placeholder={placeholder}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                     />
                     {errors[name] && (
-                        <p className="text-red-500 text-xs mt-0.5">
-                            {errors[name]?.message}
-                        </p>
+                        <p className="text-red-400 text-xs mt-1.5 ml-1">{errors[name]?.message}</p>
                     )}
                 </div>
             ))}
@@ -115,9 +111,9 @@ export function RegisterUserForm() {
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-[#C5A059] hover:bg-[#b08d4a] disabled:opacity-60 text-black py-3.5 rounded-xl font-medium flex items-center justify-center gap-2 mt-6 transition-all duration-300"
             >
-                {isLoading && <Loader2 size={16} className="animate-spin" />}
+                {isLoading && <Loader2 size={18} className="animate-spin" />}
                 Creează cont
             </button>
         </form>

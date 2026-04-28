@@ -32,10 +32,10 @@ export default function LocationPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-[#0a0a0b]">
                 <Navbar />
-                <div className="flex justify-center py-20">
-                    <Loader2 className="animate-spin text-indigo-600" size={40} />
+                <div className="flex justify-center py-32">
+                    <Loader2 className="animate-spin text-[#C5A059]" size={40} />
                 </div>
             </div>
         );
@@ -44,9 +44,9 @@ export default function LocationPage() {
     if (!location) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#0a0a0b] text-zinc-200 pt-24 pb-12">
             <Navbar />
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="max-w-7xl mx-auto px-4 space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                     {/* Coloana stânga — info + galerie */}
@@ -61,7 +61,7 @@ export default function LocationPage() {
 
                     {/* Coloana dreapta — calendar rezervare */}
                     <div className="lg:col-span-1">
-                        <div className="sticky top-24">
+                        <div className="sticky top-28">
                             <BookingCalendar
                                 location={location}
                             />

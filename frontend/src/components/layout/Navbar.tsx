@@ -23,34 +23,34 @@ export function Navbar() {
     };
 
     return (
-        <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <nav className="bg-black/40 backdrop-blur-md border-b border-white/10 fixed w-full top-0 z-50 transition-all duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
+                <div className="flex justify-between items-center h-20">
 
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg">
-                            <MapPin size={20} className="text-white" />
+                    {/* Logo Premium */}
+                    <Link href="/" className="flex items-center gap-3 group">
+                        <div className="border border-[#C5A059]/30 p-2 rounded-lg group-hover:border-[#C5A059] transition-colors">
+                            <MapPin size={22} className="text-[#C5A059]" />
                         </div>
-                        <span className="text-xl font-bold text-indigo-600">
-                            Planify
+                        <span className="text-2xl font-serif text-white tracking-wide">
+                            Planify<span className="text-[#C5A059]">.</span>
                         </span>
                     </Link>
 
                     {/* Navigație */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         {user ? (
                             <>
                                 <Link
                                     href={getDashboardLink() || '/'}
-                                    className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+                                    className="flex items-center gap-2 text-sm font-light text-zinc-300 hover:text-white transition-colors"
                                 >
-                                    {getDashboardIcon()}
+                                    <span className="text-[#C5A059]">{getDashboardIcon()}</span>
                                     Dashboard
                                 </Link>
                                 <button
                                     onClick={logout}
-                                    className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-red-500 transition-colors"
+                                    className="flex items-center gap-2 text-sm font-light text-zinc-400 hover:text-red-400 transition-colors"
                                 >
                                     <LogOut size={16} />
                                     Ieși
@@ -60,13 +60,13 @@ export function Navbar() {
                             <>
                                 <Link
                                     href="/login"
-                                    className="text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+                                    className="text-sm font-light text-zinc-300 hover:text-white transition-colors"
                                 >
                                     Autentificare
                                 </Link>
                                 <Link
                                     href="/register"
-                                    className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                                    className="bg-transparent border border-[#C5A059] text-[#C5A059] text-sm font-light px-6 py-2.5 rounded-none hover:bg-[#C5A059] hover:text-black transition-all"
                                 >
                                     Înregistrare
                                 </Link>

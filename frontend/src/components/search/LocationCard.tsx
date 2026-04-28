@@ -18,51 +18,56 @@ interface Props {
 export function LocationCard({ location }: Props) {
     return (
         <Link href={`/location/${location.id}`}>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer">
+            <div className="group bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-[#C5A059]/50 transition-all duration-500 cursor-pointer flex flex-col h-full">
 
                 {/* Poza */}
-                <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                <div className="relative h-56 bg-[#0f0f11] flex items-center justify-center overflow-hidden">
                     {location.firstPhotoUrl ? (
                         <img
                             src={`http://localhost:8080${location.firstPhotoUrl}`}
                             alt={location.displayName}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
                     ) : (
-                        <MapPin size={40} className="text-indigo-300" />
+                        <div className="flex flex-col items-center gap-2 opacity-30">
+                            <MapPin size={40} className="text-zinc-500" />
+                            <span className="text-xs font-serif text-zinc-500">Fără imagine</span>
+                        </div>
                     )}
+                    {/* Gradient overlay on image bottom for text contrast if needed */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent opacity-80 z-10"></div>
                 </div>
 
                 {/* Info */}
-                <div className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-800 text-base leading-tight">
+                <div className="p-5 flex flex-col flex-1 relative z-20 -mt-8">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className="font-serif text-white text-xl leading-tight group-hover:text-[#C5A059] transition-colors drop-shadow-md">
                             {location.displayName}
                         </h3>
-                        <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
+                        <span className="text-[10px] uppercase tracking-wider bg-[#C5A059]/10 border border-[#C5A059]/20 text-[#C5A059] px-2.5 py-1 rounded-full whitespace-nowrap backdrop-blur-md">
                             {typeLabels[location.type] || location.type}
                         </span>
                     </div>
 
-                    <p className="text-xs text-gray-400 mb-3 flex items-center gap-1">
-                        <MapPin size={12} />
+                    <p className="text-sm font-light text-zinc-400 mb-5 flex items-start gap-1.5 line-clamp-2 mt-2">
+                        <MapPin size={16} className="shrink-0 text-zinc-500 mt-0.5" />
                         {location.address}
                     </p>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
                         {/* Rating */}
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                             <Star
-                                size={14}
-                                className="text-yellow-400 fill-yellow-400"
+                                size={16}
+                                className="text-[#C5A059] fill-[#C5A059]"
                             />
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-sm font-medium text-white">
                                 {location.rating > 0
                                     ? location.rating.toFixed(1)
                                     : 'Nou'}
                             </span>
                             {location.ratingCount > 0 && (
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs font-light text-zinc-500">
                                     ({location.ratingCount})
                                 </span>
                             )}
@@ -70,8 +75,8 @@ export function LocationCard({ location }: Props) {
 
                         {/* Distanță */}
                         {location.distanceKm && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                                <Navigation size={12} />
+                            <div className="flex items-center gap-1.5 text-xs font-light text-zinc-400 bg-white/5 px-2.5 py-1 rounded-md">
+                                <Navigation size={12} className="text-[#C5A059]" />
                                 {location.distanceKm} km
                             </div>
                         )}

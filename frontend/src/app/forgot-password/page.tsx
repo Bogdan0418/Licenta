@@ -24,44 +24,64 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-md">
-                <div className="flex items-center justify-center gap-2 mb-8">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
-                        <MapPin size={20} className="text-white" />
+        <div className="min-h-screen relative flex items-center justify-center px-4 overflow-hidden">
+            {/* Background Cinematic */}
+            <div 
+                className="absolute inset-0 z-0 bg-cover bg-center"
+                style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1920&auto=format&fit=crop")' }}
+            />
+            {/* Overlay întunecat cu blur subtil */}
+            <div className="absolute inset-0 z-0 bg-[#0a0a0b]/85 backdrop-blur-sm" />
+
+            <div className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 sm:p-10 w-full max-w-md shadow-2xl animate-slide-up">
+                
+                {/* Logo Premium */}
+                <Link href="/" className="flex items-center justify-center gap-3 mb-10 group w-fit mx-auto">
+                    <div className="border border-[#C5A059]/30 p-2 rounded-lg group-hover:border-[#C5A059] transition-colors">
+                        <MapPin size={22} className="text-[#C5A059]" />
                     </div>
-                    <span className="text-2xl font-bold text-indigo-600">Planify</span>
+                    <span className="text-3xl font-serif text-white tracking-wide">
+                        Planify<span className="text-[#C5A059]">.</span>
+                    </span>
+                </Link>
+
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-serif text-white mb-2 tracking-wide">Recuperare parolă</h1>
+                    <p className="text-zinc-400 text-sm font-light">Introdu email-ul contului tău pentru a primi un link de resetare.</p>
                 </div>
 
-                <h1 className="text-xl font-semibold text-gray-800 mb-1">Recuperare parolă</h1>
-                <p className="text-gray-400 text-sm mb-6">Introdu email-ul contului tău pentru a primi un link de resetare.</p>
-
                 {message && (
-                    <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-3 rounded-lg mb-4">
+                    <div className={`text-sm px-4 py-3 rounded-lg mb-6 backdrop-blur-md text-center ${message.includes('eroare') ? 'bg-red-500/10 border border-red-500/50 text-red-400' : 'bg-[#C5A059]/10 border border-[#C5A059]/50 text-[#C5A059]'}`}>
                         {message}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Email</label>
+                        <label className="text-sm font-light text-zinc-300 mb-2 block">Email</label>
                         <input
                             type="email"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="ion@example.ro"
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            placeholder="nume@exemplu.ro"
+                            className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                         />
                     </div>
-                    <button type="submit" disabled={isLoading || !email} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
-                        {isLoading && <Loader2 size={16} className="animate-spin" />}
+                    <button 
+                        type="submit" 
+                        disabled={isLoading || !email} 
+                        className="w-full bg-[#C5A059] hover:bg-[#b08d4a] disabled:opacity-60 text-black py-3.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-300 mt-2"
+                    >
+                        {isLoading && <Loader2 size={18} className="animate-spin" />}
                         Trimite link-ul
                     </button>
                 </form>
 
-                <p className="text-center text-sm mt-6">
-                    <Link href="/login" className="text-indigo-600 hover:underline font-medium">Înapoi la autentificare</Link>
+                <p className="text-center text-sm text-zinc-400 mt-8 font-light">
+                    <Link href="/login" className="text-[#C5A059] hover:text-white transition-colors font-medium">
+                        Înapoi la autentificare
+                    </Link>
                 </p>
             </div>
         </div>

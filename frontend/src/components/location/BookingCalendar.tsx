@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { format, addDays } from 'date-fns';
 import { ro } from 'date-fns/locale';
-import { Calendar, Clock, Users, Loader2, Info } from 'lucide-react';
+import { Calendar, Clock, Users, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { LocationDetail, Slot } from '@/types';
 
@@ -19,35 +19,24 @@ export function BookingCalendar({ location }: Props) {
     const router = useRouter();
     const queryClient = useQueryClient();
 
-    const [selectedZone, setSelectedZone] = useState(
-        location.zones?.[0]?.id || null
-    );
-    
+    const [selectedZone, setSelectedZone] = useState(location.zones?.[0]?.id || null);
     const currentZone = location.zones?.find(z => z.id === selectedZone);
-    
-    const [selectedDate, setSelectedDate] = useState(
-        format(addDays(new Date(), 1), 'yyyy-MM-dd')
-    );
+    const [selectedDate, setSelectedDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
     
     const dayKey = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
     const currentDaySchedule = currentZone?.schedule?.[dayKey];
     
-    const [selectedDuration, setSelectedDuration] = useState<number>(
-        currentZone?.allowedDurations?.[0] || 60
-    );
+    const [selectedDuration, setSelectedDuration] = useState<number>(currentZone?.allowedDurations?.[0] || 60);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [groupSize, setGroupSize] = useState(2);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
-    // --- LOGICA NOUĂ: Găsim datele complete ale slotului selectat pentru a avea endTime ---
     const { data: slots, isLoading: slotsLoading } = useQuery({
         queryKey: ['slots', selectedZone, selectedDate, selectedDuration],
         queryFn: async () => {
             if (!selectedZone) return [];
-            const res = await api.get(
-                `/api/locations/public/zones/${selectedZone}/slots?date=${selectedDate}&duration=${selectedDuration}`
-            );
+            const res = await api.get(`/api/locations/public/zones/${selectedZone}/slots?date=${selectedDate}&duration=${selectedDuration}`);
             return res.data as Slot[];
         },
         enabled: !!selectedZone,
@@ -72,20 +61,18 @@ export function BookingCalendar({ location }: Props) {
             });
         },
         onSuccess: () => {
-            setSuccess('Rezervare confirmată! Verifică email-ul pentru detalii.');
+            setSuccess('Rezervare confirmată! Verifică email-ul.');
             setSelectedSlot(null);
             setError('');
             queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
             queryClient.invalidateQueries({ queryKey: ['slots'] });
         },
-        onError: (err: any) => {
-            setError(err.response?.data || 'Eroare la rezervare');
-        },
+        onError: (err: any) => setError(err.response?.data || 'Eroare la rezervare'),
     });
 
     const handleBook = () => {
         if (!user) { router.push('/login'); return; }
-        if (user.role !== 'USER') { setError('Doar utilizatorii pot face rezervări'); return; }
+        if (user.role !== 'USER') { setError('Doar clienții pot rezerva.'); return; }
         if (!selectedSlot) { setError('Selectează un slot orar'); return; }
         createBooking();
     };
@@ -95,57 +82,58 @@ export function BookingCalendar({ location }: Props) {
     );
 
     return (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                <Calendar size={18} className="text-indigo-600" />
+        <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-2xl space-y-6">
+            <h2 className="font-serif text-xl text-white flex items-center gap-2 border-b border-white/5 pb-4">
+                <Calendar size={20} className="text-[#C5A059]" />
                 Rezervă acum
             </h2>
 
-            {/* Selectare zonă și dată (rămân la fel) */}
+            {/* Selectare zonă */}
             <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Zonă</label>
+                <label className="text-[10px] font-light text-zinc-400 mb-1.5 block uppercase tracking-wider">Zonă</label>
                 <select
                     value={selectedZone || ''}
                     onChange={(e) => { setSelectedZone(Number(e.target.value)); setSelectedSlot(null); }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full bg-[#0a0a0b] border border-white/10 text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] appearance-none"
                 >
                     {location.zones.map((z) => (
-                        <option key={z.id} value={z.id}>{z.name} (max {z.maxPersons} pers.)</option>
+                        <option key={z.id} value={z.id} className="bg-[#121214]">{z.name} (max {z.maxPersons} pers.)</option>
                     ))}
                 </select>
             </div>
 
+            {/* Dată */}
             <div>
-                <div className="flex justify-between items-end mb-1">
-                    <label className="text-xs font-medium text-gray-600 block">Data</label>
+                <div className="flex justify-between items-end mb-1.5">
+                    <label className="text-[10px] font-light text-zinc-400 block uppercase tracking-wider">Data</label>
                     {currentDaySchedule && (
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${currentDaySchedule === 'Închis' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                            {currentDaySchedule === 'Închis' ? 'Zonă închisă' : `Program: ${currentDaySchedule}`}
+                        <span className={`text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border ${currentDaySchedule === 'Închis' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                            {currentDaySchedule === 'Închis' ? 'Zonă închisă' : currentDaySchedule}
                         </span>
                     )}
                 </div>
                 <select
                     value={selectedDate}
                     onChange={(e) => { setSelectedDate(e.target.value); setSelectedSlot(null); }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full bg-[#0a0a0b] border border-white/10 text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] appearance-none"
                 >
                     {availableDates.map((date) => (
-                        <option key={date} value={date}>{format(new Date(date), 'EEEE, d MMMM', { locale: ro })}</option>
+                        <option key={date} value={date} className="bg-[#121214]">{format(new Date(date), 'EEEE, d MMMM', { locale: ro })}</option>
                     ))}
                 </select>
             </div>
 
-            {/* Selector Durată */}
+            {/* Durată */}
             <div>
-                <label className="text-xs font-medium text-gray-600 mb-2 block flex items-center gap-1">
-                    <Clock size={12} /> Durata vizitei
+                <label className="text-[10px] font-light text-zinc-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Clock size={12} className="text-[#C5A059]" /> Durata vizitei
                 </label>
                 <div className="flex gap-2">
                     {currentZone?.allowedDurations?.map((dur) => (
                         <button
                             key={dur}
                             onClick={() => { setSelectedDuration(dur); setSelectedSlot(null); }}
-                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${selectedDuration === dur ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                            className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-all ${selectedDuration === dur ? 'bg-[#C5A059] text-black shadow-[0_0_10px_rgba(197,160,89,0.2)]' : 'bg-white/5 border border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'}`}
                         >
                             {dur === 90 ? '1.5h' : `${dur/60}h`}
                         </button>
@@ -153,70 +141,80 @@ export function BookingCalendar({ location }: Props) {
                 </div>
             </div>
 
-            {/* Sloturi orare */}
+            {/* Sloturi */}
             <div>
-                <label className="text-xs font-medium text-gray-600 mb-2 block flex items-center gap-1">
-                    <Clock size={12} /> Interval orar start
+                <label className="text-[10px] font-light text-zinc-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Clock size={12} className="text-[#C5A059]" /> Ora de start
                 </label>
                 {slotsLoading ? (
-                    <div className="flex justify-center py-4"><Loader2 className="animate-spin text-indigo-400" size={20} /></div>
+                    <div className="flex justify-center py-6"><Loader2 className="animate-spin text-[#C5A059]" size={20} /></div>
                 ) : slots?.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-gray-100">Nu există sloturi disponibile.</p>
+                    <p className="text-xs text-zinc-500 font-light text-center py-4 bg-white/5 rounded-xl border border-white/5">Niciun slot disponibil.</p>
                 ) : (
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                         {slots?.map((slot) => (
                             <button
                                 key={slot.startTime}
                                 onClick={() => slot.disponibil && setSelectedSlot(slot.startTime)}
                                 disabled={!slot.disponibil}
-                                className={`py-2 px-2 rounded-lg text-xs font-medium border transition-colors ${selectedSlot === slot.startTime ? 'bg-indigo-600 text-white border-indigo-600' : slot.disponibil ? 'border-gray-200 text-gray-700 hover:border-indigo-300' : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'}`}
+                                className={`py-2 rounded-lg text-xs font-medium border transition-all ${
+                                    selectedSlot === slot.startTime 
+                                        ? 'bg-[#C5A059] text-black border-[#C5A059] shadow-[0_0_10px_rgba(197,160,89,0.3)]' 
+                                        : slot.disponibil 
+                                            ? 'bg-[#121214] border-white/10 text-zinc-300 hover:border-[#C5A059]/50' 
+                                            : 'bg-white/5 border-white/5 text-zinc-600 cursor-not-allowed'
+                                }`}
                             >
                                 {slot.startTime.substring(0, 5)}
-                                {slot.disponibil && <span className="block text-[10px] opacity-70 mt-0.5">{slot.locuriLibere} locuri</span>}
+                                {slot.disponibil && <span className="block text-[9px] font-light opacity-80 mt-0.5">{slot.locuriLibere} locuri</span>}
                             </button>
                         ))}
                     </div>
                 )}
             </div>
 
-            {/* SECTIUNE NOUĂ: REZUMAT INTERVAL REZERVARE */}
+            {/* Rezumat */}
             {selectedSlotData && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-1">
-                    <div className="bg-white p-2 rounded-full text-indigo-600 shadow-sm">
-                        <Clock size={16} />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 animate-slide-up">
+                    <div className="bg-black/50 p-2 rounded-lg border border-white/5">
+                        <Clock size={16} className="text-[#C5A059]" />
                     </div>
                     <div>
-                        <p className="text-[10px] uppercase tracking-wider font-bold text-indigo-400">Intervalul selectat</p>
-                        <p className="text-sm font-bold text-indigo-900">
+                        <p className="text-[10px] text-zinc-400 font-light uppercase tracking-wider mb-0.5">Interval selectat</p>
+                        <p className="text-sm font-bold text-white tracking-wide">
                             {selectedSlotData.startTime.substring(0, 5)} — {selectedSlotData.endTime.substring(0, 5)}
                         </p>
                     </div>
                 </div>
             )}
 
-            {/* Număr persoane */}
+            {/* Persoane */}
             <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block flex items-center gap-1">
-                    <Users size={12} /> Număr persoane
+                <label className="text-[10px] font-light text-zinc-400 mb-1.5 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Users size={12} className="text-[#C5A059]" /> Număr persoane
                 </label>
                 <input
                     type="number" min={1} max={currentZone?.maxPersons || 50}
                     value={groupSize}
                     onChange={(e) => setGroupSize(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full bg-[#0a0a0b] border border-white/10 text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059]"
                 />
             </div>
 
-            {error && <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">{error}</div>}
-            {success && <div className="bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-2 rounded-lg">{success}</div>}
+            {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-lg text-center">{error}</div>}
+            {success && <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-4 py-3 rounded-lg text-center">{success}</div>}
 
             <button
                 onClick={handleBook}
                 disabled={isPending || !selectedSlot || (user !== null && user.role !== 'USER')}
-                className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${user && user.role !== 'USER' ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white'}`}
+                className={`w-full py-4 rounded-xl font-medium tracking-wide flex items-center justify-center gap-2 transition-all duration-300 ${
+                    user && user.role !== 'USER' 
+                        ? 'bg-white/5 text-zinc-500 cursor-not-allowed border border-white/5' 
+                        : 'bg-[#C5A059] hover:bg-[#b08d4a] disabled:opacity-50 text-black shadow-lg'
+                }`}
             >
-                {isPending && <Loader2 size={16} className="animate-spin" />}
-                {!user ? 'Autentifică-te pentru a rezerva' : user.role !== 'USER' ? 'Doar clienții pot face rezervări' : 'Rezervă acum'}
+                {isPending && <Loader2 size={18} className="animate-spin" />}
+                {!user ? 'Autentifică-te pentru a rezerva' : user.role !== 'USER' ? 'Doar clienții pot rezerva' : 'Confirmă Rezervarea'}
             </button>
         </div>
     );

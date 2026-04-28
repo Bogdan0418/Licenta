@@ -15,15 +15,14 @@ export default function SearchPage() {
     const [filters, setFilters] = useState({
         type: searchParams.get('type') || '',
         searchTerm: searchParams.get('q') || '',
-        radiusKm: '8', // Inițializat cu distanța maximă 8km
-        facilities: [] as string[], // Adăugat pentru facilități
+        radiusKm: '8',
+        facilities: [] as string[],
     });
     
     const [userLocation, setUserLocation] = useState<{
         lat: number; lng: number
     } | null>(null);
 
-    // Am desfăcut dependențele în queryKey pentru a face trigger corect la refresh când miști slider-ul
     const { data: rawLocations, isLoading } = useQuery({
         queryKey: ['locations', filters.type, filters.searchTerm, filters.radiusKm, userLocation],
         queryFn: async () => {
@@ -40,7 +39,6 @@ export default function SearchPage() {
         },
     });
 
-    // Filtrare frontend: Locația trebuie să aibă TOATE facilitățile selectate
     const locations = rawLocations?.filter(loc => {
         if (!filters.facilities || filters.facilities.length === 0) return true;
         if (!loc.facilities) return false;
@@ -48,13 +46,11 @@ export default function SearchPage() {
     });
 
     const handleGetLocation = () => {
-        // Dacă locația este deja activată, o dezactivăm
         if (userLocation) {
             setUserLocation(null);
             return;
         }
 
-        // Dacă nu este activată, o cerem de la browser
         navigator.geolocation.getCurrentPosition(
             (pos) => setUserLocation({
                 lat: pos.coords.latitude,
@@ -65,13 +61,13 @@ export default function SearchPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#0a0a0b] text-zinc-200">
             <Navbar />
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="max-w-7xl mx-auto px-4 py-10 md:py-16">
                 <div className="flex flex-col md:flex-row gap-8">
 
                     {/* Sidebar filtre */}
-                    <aside className="w-full md:w-72 flex-shrink-0">
+                    <aside className="w-full md:w-80 flex-shrink-0 z-10">
                         <SearchFilters
                             filters={filters}
                             onFiltersChange={setFilters}
@@ -81,28 +77,30 @@ export default function SearchPage() {
                     </aside>
 
                     {/* Rezultate */}
-                    <main className="flex-1">
-                        <div className="flex items-center justify-between mb-6">
-                            <h1 className="text-xl font-semibold text-gray-800">
+                    <main className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+                            <h1 className="text-2xl md:text-3xl font-serif text-white tracking-wide">
                                 {isLoading ? 'Se caută...' :
                                     `${locations?.length || 0} locații găsite`}
                             </h1>
                         </div>
 
                         {isLoading ? (
-                            <div className="flex justify-center py-20">
-                                <Loader2 className="animate-spin text-indigo-600" size={40} />
+                            <div className="flex justify-center items-center py-32">
+                                <Loader2 className="animate-spin text-[#C5A059]" size={48} strokeWidth={1.5} />
                             </div>
                         ) : locations?.length === 0 ? (
-                            <div className="text-center py-20 text-gray-400">
-                                <MapPin size={48} className="mx-auto mb-4 opacity-50" />
-                                <p className="text-lg">Nicio locație găsită</p>
-                                <p className="text-sm mt-1">
-                                    Încearcă să modifici filtrele sau să mărești raza.
+                            <div className="text-center py-32 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
+                                <div className="border border-white/10 p-4 rounded-full inline-block mb-6 bg-black/50">
+                                    <MapPin size={40} className="text-zinc-500" />
+                                </div>
+                                <p className="text-xl font-serif text-white mb-2">Nicio locație găsită</p>
+                                <p className="text-sm font-light text-zinc-400 max-w-sm mx-auto">
+                                    Încearcă să modifici filtrele, să renunți la câteva facilități sau să mărești raza de căutare.
                                 </p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {locations?.map((location) => (
                                     <LocationCard
                                         key={location.id}
