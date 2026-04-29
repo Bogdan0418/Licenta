@@ -142,30 +142,6 @@ public class AuthController {
                     .body("Numărul de telefon este deja folosit");
         }
 
-        // Extrage data nașterii din CNP
-        // Format CNP: SAAJJZZNNNJJC
-        // S=sex/secol, AA=an, JJ=luna, ZZ=zi
-        int year  = Integer.parseInt(request.cnp().substring(1, 3));
-        int month = Integer.parseInt(request.cnp().substring(3, 5));
-        int day   = Integer.parseInt(request.cnp().substring(5, 7));
-        int s     = Integer.parseInt(request.cnp().substring(0, 1));
-
-        int fullYear;
-        if (s == 1 || s == 2)      fullYear = 1900 + year;
-        else if (s == 3 || s == 4) fullYear = 1800 + year;
-        else if (s == 5 || s == 6) fullYear = 2000 + year;
-        else                       fullYear = 1900 + year;
-
-        LocalDate birthDate = LocalDate.of(fullYear, month, day);
-
-        // Hash CNP după extragerea datei de naștere
-        String cnpHash = passwordEncoder.encode(request.cnp());
-
-        if (userRepository.existsByCnpHash(cnpHash)) {
-            return ResponseEntity.badRequest()
-                    .body("Există deja un cont asociat acestui CNP");
-        }
-
         // Generează public_id
         long count = userRepository.count();
         String publicId = "C" + (count + 1);
@@ -175,8 +151,8 @@ public class AuthController {
         user.setFirstName(request.firstName());
         user.setLastName(request.lastName());
         user.setPhone(request.phone());
-        user.setCnpHash(cnpHash);
-        user.setBirthDate(birthDate);
+        // Luăm data nașterii direct din request (nu o mai calculăm din CNP)
+        user.setBirthDate(request.birthDate());
         user.setUsername(request.username());
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));

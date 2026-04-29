@@ -43,9 +43,6 @@ public class User extends BaseEntity {
     @Column(unique = true, nullable = false)
     private String phone;
 
-    @Column(name = "cnp_hash", unique = true, nullable = false)
-    private String cnpHash;
-
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 

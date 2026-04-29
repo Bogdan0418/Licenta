@@ -14,7 +14,7 @@ const schema = z.object({
     username: z.string().min(3, 'Minim 3 caractere'),
     email: z.string().email('Email invalid'),
     phone: z.string().min(10, 'Telefon invalid'),
-    cnp: z.string().length(13, 'CNP-ul trebuie să aibă 13 cifre'),
+    birthDate: z.string().min(1, 'Data nașterii este obligatorie'), // S-a înlocuit cnp cu birthDate
     password: z.string().min(8, 'Minim 8 caractere'),
     confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, {
@@ -55,7 +55,7 @@ export function RegisterUserForm() {
         { name: 'username' as const, label: 'Username', placeholder: 'ion.popescu' },
         { name: 'email' as const, label: 'Email', placeholder: 'ion@example.ro', type: 'email' },
         { name: 'phone' as const, label: 'Telefon', placeholder: '07XXXXXXXX' },
-        { name: 'cnp' as const, label: 'CNP', placeholder: '1YYMMDDXXXXX' },
+        { name: 'birthDate' as const, label: 'Data nașterii', placeholder: '', type: 'date' }, // Am adăugat calendar
         { name: 'password' as const, label: 'Parolă', placeholder: '••••••••', type: 'password' },
         { name: 'confirmPassword' as const, label: 'Confirmă parola', placeholder: '••••••••', type: 'password' },
     ];

@@ -19,8 +19,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPhone(String phone);
 
-    Optional<User> findByCnpHash(String cnpHash);
-
     Optional<User> findByPublicId(String publicId);
 
     boolean existsByEmail(String email);
@@ -28,8 +26,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByPhone(String phone);
-
-    boolean existsByCnpHash(String cnpHash);
 
     long countByStatus(UserStatus status);
 
