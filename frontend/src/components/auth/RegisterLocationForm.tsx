@@ -23,17 +23,45 @@ const schema = z.object({
     password: z.string().min(8, 'Minim 8 caractere'),
     confirmPassword: z.string(),
     termsAccepted: z.boolean().refine(v => v, 'Trebuie să accepți termenii'),
+    
+    // --- Câmpuri Evenimente ---
+    allowsEvents: z.boolean().optional().default(false),
+    onlyEvents: z.boolean().optional().default(false), // ADĂUGAT
+    maxEventCapacity: z.coerce.number().optional(),
+    eventTypes: z.array(z.string()).optional(),
 }).refine((d) => d.password === d.confirmPassword, {
     message: 'Parolele nu coincid',
     path: ['confirmPassword'],
 });
 
-type FormData = z.infer<typeof schema>;
+type LocationFormData = z.infer<typeof schema>;
 
+// --- LISTA ACTUALIZATĂ CU TOATE TIPURILE ---
 const locationTypes = [
-    'RESTAURANT', 'BAR', 'CLUB', 'CAFE', 'WORK_HUB',
-    'GARDEN', 'ROOFTOP', 'PUB', 'LOUNGE', 'BISTRO'
+    { value: 'RESTAURANT', label: 'Restaurant' },
+    { value: 'BAR', label: 'Bar' },
+    { value: 'CLUB', label: 'Club' },
+    { value: 'WORK_HUB', label: 'Work Hub' },
+    { value: 'GARDEN', label: 'Grădină' },
+    { value: 'ROOFTOP', label: 'Rooftop' },
+    { value: 'CAFE', label: 'Cafenea' },
+    { value: 'BISTRO', label: 'Bistro' },
+    { value: 'TEA_HOUSE', label: 'Ceainărie' },
+    { value: 'PUB', label: 'Pub' },
+    { value: 'LOUNGE', label: 'Lounge' },
+    { value: 'WINE_BAR', label: 'Wine Bar' },
+    { value: 'SPEAKEASY', label: 'Speakeasy' },
+    { value: 'PIZZERIA', label: 'Pizzerie' },
+    { value: 'FAST_FOOD', label: 'Fast Food' },
+    { value: 'DINER', label: 'Diner' },
+    { value: 'EVENT_VENUE', label: 'Spațiu Evenimente' },
+    { value: 'FOOD_HALL', label: 'Food Hall' },
+    { value: 'EVENT_HALL', label: 'Sală de evenimente' },
+    { value: 'CONFERENCE_CENTER', label: 'Centru de conferințe' },
+    { value: 'WAREHOUSE', label: 'Hală' }
 ];
+
+const eventTypesOptions = ['Nuntă', 'Botez', 'Corporate', 'Petrecere Privată', 'Conferință', 'Aniversare', 'Majorat', 'Logodnă', 'Cununie civilă'];
 
 export function RegisterLocationForm() {
     const router = useRouter();
@@ -46,9 +74,11 @@ export function RegisterLocationForm() {
     const [isSearching, setIsSearching] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(schema),
+    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LocationFormData>({
+        resolver: zodResolver(schema) as any,
     });
+
+    const allowsEvents = watch('allowsEvents'); 
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -83,7 +113,7 @@ export function RegisterLocationForm() {
         setValue('longitude', lon);
     };
 
-    const onSubmit = async (data: FormData) => {
+    const onSubmit = async (data: LocationFormData) => {
         setIsLoading(true);
         setError('');
         try {
@@ -160,8 +190,9 @@ export function RegisterLocationForm() {
                         className="w-full bg-black/40 border border-white/10 text-white px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all appearance-none"
                     >
                         <option value="" className="text-zinc-500">Selectează...</option>
-                        {locationTypes.map(t => (
-                            <option key={t} value={t} className="bg-[#0a0a0b] text-white">{t}</option>
+                        {/* AICI ESTE MAPPING-UL ACTUALIZAT */}
+                        {locationTypes.map(({ value, label }) => (
+                            <option key={value} value={value} className="bg-[#0a0a0b] text-white">{label}</option>
                         ))}
                     </select>
                     {errors.type && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.type.message}</p>}
@@ -192,7 +223,6 @@ export function RegisterLocationForm() {
                     </div>
                 </div>
 
-                {/* Dropdown Sugestii pe fundal Dark */}
                 {showSuggestions && suggestions.length > 0 && (
                     <ul className="absolute z-50 w-full mt-2 bg-[#0a0a0b] border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-auto divide-y divide-white/5">
                         {suggestions.map((place, idx) => (
@@ -222,6 +252,72 @@ export function RegisterLocationForm() {
                     rows={2}
                     className="w-full bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] resize-none transition-all"
                 />
+            </div>
+
+            {/* SECTIUNE NOUA: Organizare Evenimente */}
+            <div className="bg-[#121214] border border-white/5 rounded-xl p-5 mt-4">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center">
+                        <input
+                            {...register('allowsEvents')}
+                            type="checkbox"
+                            className="peer appearance-none w-5 h-5 border border-white/20 rounded cursor-pointer checked:bg-[#C5A059] checked:border-[#C5A059] transition-all bg-black/50"
+                        />
+                        <svg className="absolute w-3 h-3 pointer-events-none opacity-0 peer-checked:opacity-100 text-black" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7"/></svg>
+                    </div>
+                    <span className="text-sm font-medium text-white group-hover:text-[#C5A059] transition-colors">
+                        Locația permite găzduirea de evenimente speciale?
+                    </span>
+                </label>
+
+                {allowsEvents && (
+                    <div className="mt-4 space-y-4 animate-slide-up">
+                        {/* ALEGERE TIP EVENIMENT VS STANDARD */}
+                        <div className="bg-black/40 p-4 rounded-xl border border-[#C5A059]/20">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className="relative flex items-center justify-center">
+                                    <input
+                                        {...register('onlyEvents')}
+                                        type="checkbox"
+                                        className="peer appearance-none w-5 h-5 border border-white/20 rounded cursor-pointer checked:bg-[#C5A059] checked:border-[#C5A059] transition-all bg-white/5"
+                                    />
+                                    <svg className="absolute w-3 h-3 pointer-events-none opacity-0 peer-checked:opacity-100 text-black" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7"/></svg>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-[#C5A059]">Suntem o locație EXCLUSIV pentru evenimente</span>
+                                    <span className="text-[10px] text-zinc-500 font-light">Bifează dacă NU oferiți rezervări standard de 1-2 ore.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-light text-zinc-400 mb-1.5 block uppercase tracking-wider">Capacitate maximă (persoane)</label>
+                            <input
+                                type="number"
+                                {...register('maxEventCapacity')}
+                                placeholder="Ex: 150"
+                                className="w-full sm:w-1/2 bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="text-xs font-light text-zinc-400 mb-2 block uppercase tracking-wider">Ce tipuri de evenimente găzduiți?</label>
+                            <div className="flex flex-wrap gap-2">
+                                {eventTypesOptions.map((type) => (
+                                    <label key={type} className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-2 rounded-lg cursor-pointer hover:border-white/30 transition-all text-xs text-zinc-300">
+                                        <input 
+                                            type="checkbox" 
+                                            value={type} 
+                                            {...register('eventTypes')} 
+                                            className="accent-[#C5A059] w-3 h-3 rounded"
+                                        />
+                                        {type}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* SECTIUNE: Date Cont */}

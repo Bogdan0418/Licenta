@@ -206,10 +206,6 @@ public class CalendarService {
         ZoneConfig config = configRepository.findByZoneId(req.zoneId())
                 .orElseThrow(() -> new IllegalArgumentException("Configurația zonei nu a fost găsită"));
 
-        if (!config.getAllowedDurationsList().contains(req.duration())) {
-            throw new IllegalArgumentException("Durata aleasă nu este permisă pentru această zonă");
-        }
-
         String dayKey = req.bookingDate().getDayOfWeek().name().substring(0, 3).toUpperCase();
         Map<String, String> schedule = config.getSchedule();
         String scheduleForDay = (schedule != null) ? schedule.get(dayKey) : null;
@@ -229,14 +225,58 @@ public class CalendarService {
         int reqStartMin = req.startTime().getHour() * 60 + req.startTime().getMinute();
         if (reqStartMin < openMin) reqStartMin += 24 * 60;
 
-        int reqEndMin = reqStartMin + req.duration();
+        LocalTime endTime;
+        BookingStatus initialStatus;
 
-        if (reqStartMin < openMin || reqEndMin > closeMin) {
-            throw new IllegalArgumentException("Intervalul ales este în afara programului zonei pentru ziua selectată");
+        // --- LOGICĂ EVENIMENTE ---
+        if (req.isEvent()) {
+            if (req.endTime() == null) {
+                throw new IllegalArgumentException("Ora de sfârșit este obligatorie pentru evenimente");
+            }
+            if (reqStartMin < openMin) {
+                throw new IllegalArgumentException("Evenimentul nu poate începe înainte de deschiderea locației (" + openTime + ")");
+            }
+
+            endTime = req.endTime();
+            initialStatus = BookingStatus.PENDING;
         }
+        // --- LOGICĂ REZERVĂRI NORMALE ---
+        else {
+            if (req.duration() == null || !config.getAllowedDurationsList().contains(req.duration())) {
+                throw new IllegalArgumentException("Durata aleasă nu este permisă pentru această zonă");
+            }
 
-        if (req.groupSize() > zone.getMaxPersons()) {
-            throw new IllegalArgumentException("Grupul depășește capacitatea maximă a zonei (" + zone.getMaxPersons() + " persoane)");
+            int reqEndMin = reqStartMin + req.duration();
+            if (reqStartMin < openMin || reqEndMin > closeMin) {
+                throw new IllegalArgumentException("Intervalul ales este în afara programului zonei pentru ziua selectată");
+            }
+
+            if (req.groupSize() > zone.getMaxPersons()) {
+                throw new IllegalArgumentException("Grupul depășește capacitatea maximă a zonei (" + zone.getMaxPersons() + " persoane)");
+            }
+
+            List<Booking> rezervariZilei = bookingRepository.findConfirmedByZoneAndDate(req.zoneId(), req.bookingDate());
+            int ocupate = 0;
+            for (Booking b : rezervariZilei) {
+                int bS = b.getStartTime().getHour() * 60 + b.getStartTime().getMinute();
+                if (bS < openMin) bS += 24 * 60;
+
+                int bE = b.getEndTime().getHour() * 60 + b.getEndTime().getMinute();
+                if (bE <= openMin || bE < bS) bE += 24 * 60;
+
+                if (bS < reqEndMin && bE > reqStartMin) {
+                    ocupate += b.getGroupSize();
+                }
+            }
+
+            if (ocupate + req.groupSize() > zone.getCapacity()) {
+                throw new IllegalArgumentException("Slotul ales nu mai are locuri disponibile pentru " + req.groupSize() + " persoane");
+            }
+
+            int hEnd = (reqEndMin / 60) % 24;
+            int mEnd = reqEndMin % 60;
+            endTime = LocalTime.of(hEnd, mEnd);
+            initialStatus = BookingStatus.CONFIRMED;
         }
 
         int activeBookings = bookingRepository.countActiveByUser(userId);
@@ -244,32 +284,8 @@ public class CalendarService {
             throw new IllegalArgumentException("Ai atins limita de 5 rezervări active simultane");
         }
 
-        List<Booking> rezervariZilei = bookingRepository.findConfirmedByZoneAndDate(req.zoneId(), req.bookingDate());
-        int ocupate = 0;
-        for (Booking b : rezervariZilei) {
-            int bS = b.getStartTime().getHour() * 60 + b.getStartTime().getMinute();
-            if (bS < openMin) bS += 24 * 60;
-
-            int bE = b.getEndTime().getHour() * 60 + b.getEndTime().getMinute();
-            if (bE <= openMin || bE < bS) bE += 24 * 60;
-
-            if (bS < reqEndMin && bE > reqStartMin) {
-                // REPARAT AICI: Scădem numărul corect de persoane
-                ocupate += b.getGroupSize();
-            }
-        }
-
-        // REPARAT AICI: Verificăm dacă mai încap în funcție de capacitate
-        if (ocupate + req.groupSize() > zone.getCapacity()) {
-            throw new IllegalArgumentException("Slotul ales nu mai are locuri disponibile pentru " + req.groupSize() + " persoane");
-        }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Utilizatorul nu a fost găsit"));
-
-        int hEnd = (reqEndMin / 60) % 24;
-        int mEnd = reqEndMin % 60;
-        LocalTime endTime = LocalTime.of(hEnd, mEnd);
 
         Booking booking = new Booking();
         booking.setZone(zone);
@@ -278,28 +294,27 @@ public class CalendarService {
         booking.setStartTime(req.startTime());
         booking.setEndTime(endTime);
         booking.setGroupSize(req.groupSize());
-        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStatus(initialStatus);
+
+        // Salvăm detaliile suplimentare
+        if (req.isEvent()) {
+            booking.setEventEndDate(req.eventEndDate() != null ? req.eventEndDate() : req.bookingDate());
+            booking.setEventDescription(req.eventDescription());
+            booking.setSpecialRequests(req.specialRequests());
+        }
 
         Booking saved = bookingRepository.save(booking);
 
-        try {
-            String locationName = zone.getLocation().getDisplayName();
-
-            String htmlMessage = emailService.buildBookingTemplate(
-                    user.getFirstName(),
-                    locationName,
-                    saved.getBookingDate().toString(),
-                    saved.getStartTime().toString(),
-                    zone.getName()
-            );
-
-            emailService.sendHtmlEmail(
-                    user.getEmail(),
-                    "Confirmare Rezervare - " + locationName,
-                    htmlMessage
-            );
-        } catch (Exception e) {
-            System.err.println("Rezervarea a fost creată, dar email-ul nu a putut fi trimis: " + e.getMessage());
+        if (initialStatus == BookingStatus.CONFIRMED) {
+            try {
+                String locationName = zone.getLocation().getDisplayName();
+                String htmlMessage = emailService.buildBookingTemplate(
+                        user.getFirstName(), locationName, saved.getBookingDate().toString(),
+                        saved.getStartTime().toString(), zone.getName());
+                emailService.sendHtmlEmail(user.getEmail(), "Confirmare Rezervare - " + locationName, htmlMessage);
+            } catch (Exception e) {
+                System.err.println("Rezervarea a fost creată, dar email-ul nu a putut fi trimis: " + e.getMessage());
+            }
         }
 
         return toBookingResponse(saved);
@@ -396,7 +411,58 @@ public class CalendarService {
                 b.getGroupSize(),
                 b.getStatus(),
                 canCancel,
-                canReview
+                canReview,
+                b.getEventEndDate(),
+                b.getEventDescription(),
+                b.getSpecialRequests()
         );
+    }
+
+    @Transactional
+    public void approveBooking(Long bookingId, Long locationId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Rezervarea nu a fost găsită"));
+
+        if (!booking.getZone().getLocation().getId().equals(locationId)) {
+            throw new IllegalArgumentException("Nu aveți permisiunea de a aproba această rezervare");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException("Doar rezervările în așteptare pot fi aprobate");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        bookingRepository.save(booking);
+
+        // Opțional: Trimite un email utilizatorului că evenimentul i-a fost aprobat
+        try {
+            User user = booking.getUser();
+            String locationName = booking.getZone().getLocation().getDisplayName();
+            String htmlMessage = emailService.buildBookingTemplate(
+                    user.getFirstName(), locationName, booking.getBookingDate().toString(),
+                    booking.getStartTime().toString(), booking.getZone().getName());
+            emailService.sendHtmlEmail(user.getEmail(), "Aprobată: Cerere Eveniment - " + locationName, htmlMessage);
+        } catch (Exception e) {
+            System.err.println("Email-ul de aprobare nu a putut fi trimis: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void rejectBooking(Long bookingId, Long locationId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Rezervarea nu a fost găsită"));
+
+        if (!booking.getZone().getLocation().getId().equals(locationId)) {
+            throw new IllegalArgumentException("Nu aveți permisiunea de a respinge această rezervare");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException("Doar rezervările în așteptare pot fi respinse");
+        }
+
+        booking.setStatus(BookingStatus.REJECTED);
+        bookingRepository.save(booking);
+
+        // Opțional: Aici poți trimite un email că locația nu poate găzdui evenimentul
     }
 }

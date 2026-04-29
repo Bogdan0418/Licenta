@@ -3,17 +3,30 @@
 import { Navigation, Check } from 'lucide-react';
 import { facilityLabels } from '@/lib/utils'; 
 
+// --- LISTA ACTUALIZATĂ CU TOATE TIPURILE ---
 const locationTypes = [
     { value: '', label: 'Toate tipurile' },
     { value: 'RESTAURANT', label: 'Restaurant' },
     { value: 'BAR', label: 'Bar' },
     { value: 'CLUB', label: 'Club' },
-    { value: 'CAFE', label: 'Cafenea' },
     { value: 'WORK_HUB', label: 'Work Hub' },
     { value: 'GARDEN', label: 'Grădină' },
     { value: 'ROOFTOP', label: 'Rooftop' },
+    { value: 'CAFE', label: 'Cafenea' },
+    { value: 'BISTRO', label: 'Bistro' },
+    { value: 'TEA_HOUSE', label: 'Ceainărie' },
     { value: 'PUB', label: 'Pub' },
     { value: 'LOUNGE', label: 'Lounge' },
+    { value: 'WINE_BAR', label: 'Wine Bar' },
+    { value: 'SPEAKEASY', label: 'Speakeasy' },
+    { value: 'PIZZERIA', label: 'Pizzerie' },
+    { value: 'FAST_FOOD', label: 'Fast Food' },
+    { value: 'DINER', label: 'Diner' },
+    { value: 'EVENT_VENUE', label: 'Spațiu Evenimente' },
+    { value: 'FOOD_HALL', label: 'Food Hall' },
+    { value: 'EVENT_HALL', label: 'Sală de evenimente' },
+    { value: 'CONFERENCE_CENTER', label: 'Centru de conferințe' },
+    { value: 'WAREHOUSE', label: 'Hală' }
 ];
 
 interface Props {
@@ -22,6 +35,7 @@ interface Props {
         searchTerm: string;
         radiusKm: string;
         facilities: string[];
+        allowsEvents: boolean;
     };
     onFiltersChange: (filters: any) => void;
     onGetLocation: () => void;
@@ -70,6 +84,27 @@ export function SearchFilters({
                         <option key={value} value={value}>{label}</option>
                     ))}
                 </select>
+            </div>
+
+            {/* Filtru Evenimente (Toggle) */}
+            <div className="pt-6 border-t border-white/5">
+                <label className="flex items-center gap-4 cursor-pointer group">
+                    <div className={`w-11 h-6 rounded-full relative transition-colors duration-300 ${filters.allowsEvents ? 'bg-[#C5A059]' : 'bg-white/10 group-hover:bg-white/20'}`}>
+                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 shadow-sm ${filters.allowsEvents ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                    <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={filters.allowsEvents}
+                        onChange={(e) => onFiltersChange({ ...filters, allowsEvents: e.target.checked })}
+                    />
+                    <div className="flex flex-col">
+                        <span className={`text-sm font-medium transition-colors ${filters.allowsEvents ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                            Organizare evenimente
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-light">Doar locații care găzduiesc evenimente</span>
+                    </div>
+                </label>
             </div>
 
             {/* Geolocație & Slider Distanță */}
@@ -164,7 +199,7 @@ export function SearchFilters({
             {/* Reset */}
             <button
                 onClick={() => onFiltersChange({
-                    type: '', searchTerm: '', radiusKm: '8', facilities: []
+                    type: '', searchTerm: '', radiusKm: '8', facilities: [], allowsEvents: false
                 })}
                 className="w-full text-sm font-light text-red-400 hover:text-red-300 hover:bg-red-500/10 py-3 border border-transparent hover:border-red-500/20 rounded-xl transition-all mt-2"
             >

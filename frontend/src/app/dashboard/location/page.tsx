@@ -15,6 +15,8 @@ import {
 import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
 import { facilityLabels } from '@/lib/utils';
+import { MessageCircle } from 'lucide-react'; // adauga asta la importurile de la lucide-react
+import { ChatModal } from '@/components/chat/ChatModal';
 
 const DAYS = [
     { key: 'MON', label: 'Luni' }, { key: 'TUE', label: 'Marți' },
@@ -100,6 +102,15 @@ export default function LocationDashboardPage() {
         enabled: !!user,
     });
 
+    const [activeChat, setActiveChat] = useState<{id: number, name: string} | null>(null);
+
+    const { data: activeChats } = useQuery({
+        queryKey: ['location-chats'],
+        queryFn: async () => (await api.get('/api/chat/location/active')).data as any[],
+        enabled: !!user,
+        refetchInterval: 5000, // Verifică mesaje noi din 5 in 5 secunde
+    });
+
     const handleAddCustomFacility = () => {
         const value = customFacilityInput.trim();
         if (value && !selectedFacilities.includes(value)) {
@@ -111,6 +122,23 @@ export default function LocationDashboardPage() {
     // --- MUTATIONS ---
     const { mutate: markNoShow } = useMutation({
         mutationFn: async (bookingId: number) => api.post(`/api/location/bookings/${bookingId}/no-show`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agenda'] });
+            queryClient.invalidateQueries({ queryKey: ['location-bookings'] });
+        }
+    });
+
+    // MUTAȚII NOI PENTRU EVENIMENTE
+    const { mutate: approveEvent } = useMutation({
+        mutationFn: async (id: number) => api.post(`/api/location/bookings/${id}/approve`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agenda'] });
+            queryClient.invalidateQueries({ queryKey: ['location-bookings'] });
+        }
+    });
+
+    const { mutate: rejectEvent } = useMutation({
+        mutationFn: async (id: number) => api.post(`/api/location/bookings/${id}/reject`),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['agenda'] });
             queryClient.invalidateQueries({ queryKey: ['location-bookings'] });
@@ -211,7 +239,8 @@ export default function LocationDashboardPage() {
 
     const pastBookings = allBookings?.filter(b => ['COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_NO_SHOW'].includes(b.status)) || [];
     const validBookings = allBookings?.filter(b => b.status === 'CONFIRMED' || b.status === 'COMPLETED') || [];
-    
+    const pendingBookings = allBookings?.filter(b => b.status === 'PENDING') || [];
+
     const bookingsToday = validBookings.filter(b => isToday(parseISO(b.bookingDate))).length;
     const bookingsThisWeek = validBookings.filter(b => isThisWeek(parseISO(b.bookingDate), { weekStartsOn: 1 })).length;
     const bookingsThisMonth = validBookings.filter(b => isThisMonth(parseISO(b.bookingDate))).length;
@@ -236,6 +265,8 @@ export default function LocationDashboardPage() {
         COMPLETED: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
         CANCELLED_BY_USER: 'bg-white/5 text-zinc-400 border-white/10',
         CANCELLED_NO_SHOW: 'bg-red-500/10 text-red-400 border-red-500/20',
+        PENDING: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+        REJECTED: 'bg-red-500/10 text-red-400 border-red-500/20',
     };
 
     const statusLabels: Record<string, string> = {
@@ -243,6 +274,8 @@ export default function LocationDashboardPage() {
         COMPLETED: 'Finalizată',
         CANCELLED_BY_USER: 'Anulată client',
         CANCELLED_NO_SHOW: 'Neprezentare',
+        PENDING: 'Cerere Eveniment',
+        REJECTED: 'Respinsă',
     };
 
     return (
@@ -325,7 +358,103 @@ export default function LocationDashboardPage() {
                     
                     {/* COLOANA STÂNGA (Operațional - 65%) */}
                     <div className="lg:col-span-8 space-y-6 flex flex-col">
-                        
+                        {/* --- NOU: CERERI EVENIMENTE ÎN AȘTEPTARE --- */}
+                        {pendingBookings.length > 0 && (
+                            <div className="bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-2xl p-6 flex flex-col h-fit animate-slide-up shadow-[0_0_20px_rgba(197,160,89,0.1)]">
+                                <h2 className="font-serif text-lg text-[#C5A059] mb-4 flex items-center gap-2">
+                                    <AlertTriangle size={18} /> Cereri Evenimente Noi ({pendingBookings.length})
+                                </h2>
+                                <div className="space-y-4">
+                                    {pendingBookings.map((booking) => (
+                                        <div key={booking.id} className="bg-[#121214] border border-[#C5A059]/20 rounded-xl p-5 flex flex-col gap-4">
+                                            
+                                            {/* Rândul 1: Header cu Data, Zona și Butoane */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-1.5">
+                                                        <span className="font-bold text-white text-sm bg-white/10 px-2 py-1 rounded-md">
+                                                            {format(parseISO(booking.bookingDate), 'd MMM', { locale: ro })} 
+                                                            {booking.eventEndDate && booking.eventEndDate !== booking.bookingDate && ` - ${format(parseISO(booking.eventEndDate), 'd MMM yyyy', { locale: ro })}`}
+                                                            {' '}| {booking.startTime.substring(0, 5)} – {booking.endTime.substring(0, 5)}
+                                                        </span>
+                                                        <span className="text-xs font-light text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded-full">{booking.zoneName}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-2">
+                                                        <Users size={12} className="text-zinc-500"/> <span className="text-white font-medium">{booking.groupSize}</span> persoane
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => approveEvent(booking.id)} className="text-xs font-medium text-black bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-lg transition-all shadow-md">
+                                                        Acceptă
+                                                    </button>
+                                                    <button onClick={() => rejectEvent(booking.id)} className="text-xs font-medium text-black bg-red-500 hover:bg-red-400 px-4 py-2 rounded-lg transition-all shadow-md">
+                                                        Respinge
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Rândul 2: Detaliile trimise de client */}
+                                            {(booking.eventDescription || booking.specialRequests) && (
+                                                <div className="p-3.5 bg-black/40 border border-white/5 rounded-lg space-y-3">
+                                                    {booking.eventDescription && (
+                                                        <div>
+                                                            <span className="text-[10px] uppercase tracking-wider text-[#C5A059] font-medium block mb-1">Descrierea Evenimentului</span>
+                                                            <p className="text-sm text-zinc-300 font-light leading-relaxed">{booking.eventDescription}</p>
+                                                        </div>
+                                                    )}
+                                                    {booking.specialRequests && (
+                                                        <div>
+                                                            <span className="text-[10px] uppercase tracking-wider text-[#C5A059] font-medium block mb-1">Cerințe Extra</span>
+                                                            <p className="text-sm text-zinc-300 font-light leading-relaxed">{booking.specialRequests}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {/* --- NOU: MESAJE ȘI CONVERSAȚII ACTIVE --- */}
+                        {activeChats && activeChats.length > 0 && (
+                            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col h-fit">
+                                <h2 className="font-serif text-lg text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">
+                                    <MessageCircle size={18} className="text-[#C5A059]" /> Mesaje Clienți
+                                </h2>
+                                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                    {activeChats.map((chat) => (
+                                        <div 
+                                            key={chat.bookingId} 
+                                            onClick={() => setActiveChat({ id: chat.bookingId, name: chat.clientName })}
+                                            className="bg-[#121214] border border-white/5 hover:border-[#C5A059]/50 cursor-pointer rounded-xl p-4 flex items-center justify-between transition-all group relative overflow-hidden"
+                                        >
+                                            {/* Glow dacă sunt mesaje necitite */}
+                                            {chat.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C5A059]"></div>}
+                                            
+                                            <div className="flex-1 min-w-0 pr-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`font-bold text-sm ${chat.unreadCount > 0 ? 'text-[#C5A059]' : 'text-white'}`}>{chat.clientName}</span>
+                                                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-zinc-400">Rezervarea #{chat.bookingId}</span>
+                                                </div>
+                                                <p className={`text-xs truncate ${chat.unreadCount > 0 ? 'text-white font-medium' : 'text-zinc-500 font-light'}`}>
+                                                    {chat.lastMessage}
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                                <span className="text-[9px] text-zinc-500">{format(parseISO(chat.lastMessageTime), 'HH:mm', { locale: ro })}</span>
+                                                {chat.unreadCount > 0 && (
+                                                    <span className="bg-[#C5A059] text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(197,160,89,0.4)]">
+                                                        {chat.unreadCount} nouă
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {/* AGENDA ZILEI */}
                         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col h-fit">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
@@ -350,17 +479,40 @@ export default function LocationDashboardPage() {
                                 ) : (
                                     <div className="space-y-3">
                                         {agenda?.map((booking) => (
-                                            <div key={booking.id} className="bg-[#121214] border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-white/10 transition-colors">
-                                                <div>
+                                            <div key={booking.id} className="bg-[#121214] border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:border-white/10 transition-colors">
+                                                <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-1.5">
-                                                        <span className="font-bold text-white text-sm bg-white/10 px-2 py-1 rounded-md">{booking.startTime.substring(0, 5)} – {booking.endTime.substring(0, 5)}</span>
+                                                        <span className="font-bold text-white text-sm bg-white/10 px-2 py-1 rounded-md">
+                                                            {format(parseISO(booking.bookingDate), 'd MMM', { locale: ro })} 
+                                                            {booking.eventEndDate && booking.eventEndDate !== booking.bookingDate && ` - ${format(parseISO(booking.eventEndDate), 'd MMM yyyy', { locale: ro })}`}
+                                                            {' '}| {booking.startTime.substring(0, 5)} – {booking.endTime.substring(0, 5)}
+                                                        </span>
                                                         <span className="text-xs font-light text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded-full">{booking.zoneName}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-2">
                                                         <Users size={12} className="text-zinc-500"/> {booking.groupSize} persoane
                                                     </div>
+
+                                                    {/* AFISARE DETALII EVENIMENT DACA E CONFIRMAT IN AGENDA */}
+                                                    {(booking.eventDescription || booking.specialRequests) && (
+                                                        <div className="mt-3 p-3 bg-black/40 border border-white/5 rounded-lg space-y-2 text-xs">
+                                                            {booking.eventDescription && (
+                                                                <div>
+                                                                    <span className="text-[#C5A059] font-medium block mb-0.5">Descriere eveniment:</span>
+                                                                    <p className="text-zinc-300">{booking.eventDescription}</p>
+                                                                </div>
+                                                            )}
+                                                            {booking.specialRequests && (
+                                                                <div>
+                                                                    <span className="text-[#C5A059] font-medium block mb-0.5">Cerințe extra:</span>
+                                                                    <p className="text-zinc-300">{booking.specialRequests}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="flex flex-col sm:items-end gap-2">
+
+                                                <div className="flex flex-col sm:items-end gap-2 mt-2 md:mt-0">
                                                     <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border font-medium w-fit ${statusColors[booking.status] || 'bg-white/5 text-zinc-400 border-white/10'}`}>
                                                         {statusLabels[booking.status] || booking.status}
                                                     </span>
@@ -770,6 +922,15 @@ export default function LocationDashboardPage() {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* Modal Chat Locație */}
+            {activeChat && (
+                <ChatModal 
+                    bookingId={activeChat.id} 
+                    recipientName={activeChat.name} 
+                    senderType="LOCATION" 
+                    onClose={() => setActiveChat(null)} 
+                />
             )}
         </div>
     );

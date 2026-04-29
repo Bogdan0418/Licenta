@@ -23,6 +23,7 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     List<Location> findByStatus(LocationStatus status);
     long countByStatus(LocationStatus status);
     List<Location> findByRatingLessThanAndStatus(BigDecimal rating, LocationStatus status);
+    List<Location> findByAllowsEventsTrue();
 
     // Query Haversine — calculeaza distanta in km intre doua coordonate GPS
     // Returneaza locatii in raza specificata, ordonate dupa distanța

@@ -161,6 +161,34 @@ public class CalendarController {
         }
     }
 
+    @PostMapping("/api/location/bookings/{bookingId}/approve")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> approveEventBooking(
+            @PathVariable Long bookingId,
+            HttpServletRequest httpRequest) {
+        try {
+            Long locationId = extractLocationId(httpRequest);
+            calendarService.approveBooking(bookingId, locationId);
+            return ResponseEntity.ok("Cererea pentru eveniment a fost aprobată.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/location/bookings/{bookingId}/reject")
+    @PreAuthorize("hasRole('LOCATION')")
+    public ResponseEntity<?> rejectEventBooking(
+            @PathVariable Long bookingId,
+            HttpServletRequest httpRequest) {
+        try {
+            Long locationId = extractLocationId(httpRequest);
+            calendarService.rejectBooking(bookingId, locationId);
+            return ResponseEntity.ok("Cererea pentru eveniment a fost respinsă.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/api/location/bookings")
     @PreAuthorize("hasRole('LOCATION')")
     public ResponseEntity<List<BookingResponse>> getLocationBookings(

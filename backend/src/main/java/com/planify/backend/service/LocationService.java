@@ -73,6 +73,11 @@ public class LocationService {
         location.setAddress(req.address());
         location.setStatus(LocationStatus.PENDING);
 
+        // Salvăm și opțiunile de evenimente din request
+        location.setAllowsEvents(req.allowsEvents());
+        location.setOnlyEvents(req.onlyEvents());
+        location.setMaxEventCapacity(req.maxEventCapacity());
+
         if (req.latitude() != null) location.setLatitude(BigDecimal.valueOf(req.latitude()));
         if (req.longitude() != null) location.setLongitude(BigDecimal.valueOf(req.longitude()));
 
@@ -96,8 +101,10 @@ public class LocationService {
         return saved;
     }
 
-    public List<LocationSummaryResponse> searchLocations(LocationType type, String searchTerm, Double lat, Double lng, Double radiusKm) {
+    public List<LocationSummaryResponse> searchLocations(LocationType type, String searchTerm, Double lat, Double lng, Double radiusKm, Boolean allowsEvents) {
         List<Location> locations;
+
+        // 1. Aducem baza de locații (după rază SAU după text)
         if (lat != null && lng != null) {
             double radius = radiusKm != null ? radiusKm : 10.0;
             locations = locationRepository.findNearbyLocations(lat, lng, radius);
@@ -108,6 +115,15 @@ public class LocationService {
         } else {
             locations = locationRepository.searchLocations(type != null ? type.name() : null, searchTerm);
         }
+
+        // 2. Aplicăm filtrul pentru evenimente dacă a fost cerut
+        if (Boolean.TRUE.equals(allowsEvents)) {
+            locations = locations.stream()
+                    .filter(Location::isAllowsEvents) // Folosim metoda generată de lombok pentru boolean
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Mapăm în Response-uri
         return locations.stream().map(l -> toSummary(l, lat, lng)).collect(Collectors.toList());
     }
 
@@ -136,7 +152,8 @@ public class LocationService {
                 location.getId(), location.getPublicId(), location.getDisplayName(), location.getType(),
                 location.getAddress(), location.getLatitude(), location.getLongitude(), location.getDescription(),
                 location.getPublicPhone(), location.getSchedule(), location.getInstagramUrl(), location.getFacebookUrl(),
-                location.getTiktokUrl(), location.getRating(), location.getRatingCount(), photoUrls, facilities, zones, isFavorite
+                location.getTiktokUrl(), location.getRating(), location.getRatingCount(), photoUrls, facilities, zones, isFavorite,
+                location.isAllowsEvents(), location.isOnlyEvents()
         );
     }
 

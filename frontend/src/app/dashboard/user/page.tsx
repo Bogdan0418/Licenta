@@ -4,12 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useAuth } from '@/context/AuthContext';
 import { Navbar } from '@/components/layout/Navbar';
-import { Calendar, MapPin, X, Loader2, AlertTriangle, Star, MessageSquare, Check, History } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, MapPin, X, Loader2, AlertTriangle, Star, MessageSquare, Check, History, Users, MessageSquare as ChatIcon } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { useState } from 'react';
 import api from '@/lib/api';
 import { Booking, Review } from '@/types';
+import { ChatModal } from '@/components/chat/ChatModal';
 
 export default function UserDashboardPage() {
     const { user, isLoading: authLoading } = useRequireAuth('USER');
@@ -25,6 +26,9 @@ export default function UserDashboardPage() {
     const [deleteModal, setDeleteModal] = useState(false);
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteError, setDeleteError] = useState('');
+    
+    // State pentru Chat
+    const [activeChat, setActiveChat] = useState<Booking | null>(null);
 
     const { data: bookings, isLoading: bookingsLoading } = useQuery({
         queryKey: ['my-bookings'],
@@ -48,6 +52,14 @@ export default function UserDashboardPage() {
         queryKey: ['user-given-reviews'],
         queryFn: async () => (await api.get('/api/user/reviews/given')).data as Review[],
         enabled: !!user,
+    });
+
+    // --- QUERY NOU PENTRU MESAJE NECITITE ---
+    const { data: unreadChats } = useQuery({
+        queryKey: ['user-unread-chats'],
+        queryFn: async () => (await api.get('/api/chat/user/unread')).data as Record<number, number>,
+        enabled: !!user,
+        refetchInterval: 5000, // Verifică mesaje noi din 5 in 5 secunde
     });
 
     const { mutate: cancelBooking, isPending: cancelling } = useMutation({
@@ -86,14 +98,16 @@ export default function UserDashboardPage() {
         return <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center"><Loader2 className="animate-spin text-[#C5A059]" size={40} /></div>;
     }
 
-    const upcoming = bookings?.filter(b => b.status === 'CONFIRMED') || [];
-    const past = bookings?.filter(b => ['COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_NO_SHOW'].includes(b.status)) || [];
+    const upcoming = bookings?.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING') || [];
+    const past = bookings?.filter(b => ['COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_NO_SHOW', 'REJECTED'].includes(b.status)) || [];
 
     const statusColors: Record<string, string> = {
         CONFIRMED: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
         COMPLETED: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
         CANCELLED_BY_USER: 'bg-white/5 text-zinc-400 border border-white/10',
         CANCELLED_NO_SHOW: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        PENDING: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+        REJECTED: 'bg-red-500/10 text-red-400 border border-red-500/20',
     };
 
     const statusLabels: Record<string, string> = {
@@ -101,6 +115,8 @@ export default function UserDashboardPage() {
         COMPLETED: 'Finalizată',
         CANCELLED_BY_USER: 'Anulată',
         CANCELLED_NO_SHOW: 'Neprezentare',
+        PENDING: 'În așteptare (Eveniment)',
+        REJECTED: 'Cerere Respinsă',
     };
 
     return (
@@ -132,7 +148,7 @@ export default function UserDashboardPage() {
                     )}
                 </div>
 
-                {/* REZERVĂRI VIITOARE */}
+                {/* REZERVĂRI VIITOARE & ÎN AȘTEPTARE */}
                 <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                     <h2 className="font-serif text-lg text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
                         <Calendar size={18} className="text-[#C5A059]" />
@@ -148,21 +164,59 @@ export default function UserDashboardPage() {
                     ) : (
                         <div className="space-y-4">
                             {upcoming.map((booking) => (
-                                <div key={booking.id} className="bg-[#121214] border border-white/5 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-white/10 transition-colors">
+                                <div key={booking.id} className="bg-[#121214] border border-white/5 rounded-xl p-5 flex flex-col md:flex-row md:items-start justify-between gap-4 hover:border-white/10 transition-colors">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-2">
                                             <MapPin size={16} className="text-[#C5A059]" />
                                             <span className="font-bold text-white text-base">{booking.locationName}</span>
                                             <span className="text-xs font-light text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded-full ml-2">{booking.zoneName}</span>
                                         </div>
-                                        <p className="text-sm font-light text-zinc-400 ml-6">
-                                            {format(new Date(booking.bookingDate), 'EEEE, d MMMM yyyy', { locale: ro })} • <span className="text-white font-medium">{booking.startTime.substring(0, 5)} – {booking.endTime.substring(0, 5)}</span> • {booking.groupSize} pers
+                                        <p className="text-sm font-light text-zinc-400 ml-6 flex items-center flex-wrap gap-1.5">
+                                            <span>{format(parseISO(booking.bookingDate), 'd MMM yyyy', { locale: ro })}</span>
+                                            {booking.eventEndDate && booking.eventEndDate !== booking.bookingDate && (
+                                                <span> - {format(parseISO(booking.eventEndDate), 'd MMM yyyy', { locale: ro })}</span>
+                                            )}
+                                            <span className="mx-1">•</span>
+                                            <span className="text-white font-medium">{booking.startTime.substring(0, 5)} – {booking.endTime.substring(0, 5)}</span> 
+                                            <span className="mx-1">•</span>
+                                            <span className="flex items-center gap-1"><Users size={12}/> {booking.groupSize} pers</span>
                                         </p>
+
+                                        {/* Detalii Eveniment dacă există */}
+                                        {(booking.eventDescription || booking.specialRequests) && (
+                                            <div className="ml-6 mt-3 p-3 bg-black/40 border border-white/5 rounded-lg space-y-2 text-xs">
+                                                {booking.eventDescription && (
+                                                    <div>
+                                                        <span className="text-[#C5A059] font-medium">Descrierea Evenimentului:</span>
+                                                        <p className="text-zinc-300 mt-0.5">{booking.eventDescription}</p>
+                                                    </div>
+                                                )}
+                                                {booking.specialRequests && (
+                                                    <div>
+                                                        <span className="text-[#C5A059] font-medium">Cerințe extra:</span>
+                                                        <p className="text-zinc-300 mt-0.5">{booking.specialRequests}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 md:mt-0 mt-2">
                                         <span className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md font-medium ${statusColors[booking.status]}`}>
                                             {statusLabels[booking.status]}
                                         </span>
+                                        
+                                        {/* --- BUTON CHAT CU BULINĂ --- */}
+                                        {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
+                                            <button onClick={() => setActiveChat(booking)} className="relative text-xs text-black bg-[#C5A059] hover:bg-[#b08d4a] px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md">
+                                                <ChatIcon size={14} /> Discută
+                                                {unreadChats?.[booking.id] && unreadChats[booking.id] > 0 ? (
+                                                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-[#121214] shadow-lg animate-pulse">
+                                                        {unreadChats[booking.id]}
+                                                    </span>
+                                                ) : null}
+                                            </button>
+                                        )}
+
                                         {booking.canCancel && (
                                             <button onClick={() => setCancelWarning(booking.id)} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 flex items-center gap-1.5 transition-all">
                                                 <X size={14} /> Anulează
@@ -192,7 +246,10 @@ export default function UserDashboardPage() {
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <span className="text-sm font-bold text-white block mb-1">{booking.locationName}</span>
-                                                <span className="text-xs font-light text-zinc-400">{format(new Date(booking.bookingDate), 'd MMMM yyyy', { locale: ro })}</span>
+                                                <span className="text-xs font-light text-zinc-400">
+                                                    {format(parseISO(booking.bookingDate), 'd MMM yyyy', { locale: ro })}
+                                                    {booking.eventEndDate && booking.eventEndDate !== booking.bookingDate && ` - ${format(parseISO(booking.eventEndDate), 'd MMM', { locale: ro })}`}
+                                                </span>
                                             </div>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider ${statusColors[booking.status]}`}>
                                                 {statusLabels[booking.status]}
@@ -277,7 +334,17 @@ export default function UserDashboardPage() {
                 </div>
             </div>
 
-            {/* MODAL ANULARE */}
+            {/* MODAL CHAT CLIENT */}
+            {activeChat && (
+                <ChatModal 
+                    bookingId={activeChat.id} 
+                    recipientName={activeChat.locationName} 
+                    senderType="USER" 
+                    onClose={() => setActiveChat(null)} 
+                />
+            )}
+
+            {/* MODALELE RĂMÂN IDENTICE CA ÎNAINTE */}
             {cancelWarning && (
                 <div className="fixed inset-0 bg-[#0a0a0b]/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-in fade-in duration-200">
                     <div className="bg-[#121214] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -297,7 +364,6 @@ export default function UserDashboardPage() {
                 </div>
             )}
 
-            {/* MODAL RECENZIE */}
             {reviewModal && (
                 <div className="fixed inset-0 bg-[#0a0a0b]/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-in fade-in duration-200">
                     <div className="bg-[#121214] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -324,7 +390,6 @@ export default function UserDashboardPage() {
                 </div>
             )}
 
-            {/* MODAL ȘTERGERE CONT */}
             {deleteModal && (
                 <div className="fixed inset-0 bg-[#0a0a0b]/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 animate-in fade-in duration-200">
                     <div className="bg-[#121214] border border-red-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">

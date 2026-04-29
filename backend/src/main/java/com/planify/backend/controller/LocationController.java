@@ -46,8 +46,9 @@ public class LocationController {
             @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
-            @RequestParam(required = false) Double radiusKm) {
-        return ResponseEntity.ok(locationService.searchLocations(type, searchTerm, lat, lng, radiusKm));
+            @RequestParam(required = false) Double radiusKm,
+            @RequestParam(required = false) Boolean allowsEvents) { // <-- Parametrul NOU
+        return ResponseEntity.ok(locationService.searchLocations(type, searchTerm, lat, lng, radiusKm, allowsEvents));
     }
 
     @GetMapping("/api/locations/public/{id}")
@@ -73,15 +74,16 @@ public class LocationController {
                 .collect(Collectors.toList());
 
         List<String> facilities = facilityRepository.findByLocationId(locationId).stream()
-                .map(lf -> lf.getFacility()) // Acum ia direct stringul
+                .map(lf -> lf.getFacility())
                 .collect(Collectors.toList());
 
+        // AICI ESTE SECRETUL: Adăugăm fallback-uri ( ? : ) la toate variabilele care ar putea fi nule
         return ResponseEntity.ok(Map.of(
                 "id", location.getId(),
-                "displayName", location.getDisplayName(),
+                "displayName", location.getDisplayName() != null ? location.getDisplayName() : "",
                 "description", location.getDescription() != null ? location.getDescription() : "",
-                "rating", location.getRating(),
-                "ratingCount", location.getRatingCount(),
+                "rating", location.getRating() != null ? location.getRating() : 0.0,
+                "ratingCount", location.getRatingCount() != null ? location.getRatingCount() : 0,
                 "photos", photos,
                 "facilities", facilities
         ));

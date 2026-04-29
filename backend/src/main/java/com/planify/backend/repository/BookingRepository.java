@@ -66,7 +66,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("""
         SELECT b FROM Booking b
         WHERE b.zone.location.id = :locationId
-          AND b.bookingDate = :date
+          AND b.bookingDate <= :date
+          AND COALESCE(b.eventEndDate, b.bookingDate) >= :date
           AND b.status = 'CONFIRMED'
         ORDER BY b.startTime ASC
         """)

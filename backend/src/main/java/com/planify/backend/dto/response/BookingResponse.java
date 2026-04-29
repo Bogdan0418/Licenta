@@ -15,5 +15,8 @@ public record BookingResponse(
         int groupSize,
         BookingStatus status,
         boolean canCancel,
-        boolean canReview
+        boolean canReview,
+        LocalDate eventEndDate,
+        String eventDescription,
+        String specialRequests
 ) {}

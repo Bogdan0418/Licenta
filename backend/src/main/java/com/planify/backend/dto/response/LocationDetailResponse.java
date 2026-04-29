@@ -25,5 +25,7 @@ public record LocationDetailResponse(
         List<String> photoUrls,
         List<String> facilities, // Modificat aici
         List<ZoneSummaryResponse> zones,
-        boolean isFavorite
+        boolean isFavorite,
+        boolean allowsEvents,
+        boolean onlyEvents
 ) {}

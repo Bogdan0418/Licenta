@@ -27,5 +27,8 @@ public enum LocationType {
 
     //Evenimente si spații mari
     EVENT_VENUE,
-    FOOD_HALL
+    FOOD_HALL,
+    EVENT_HALL,       // Sală de evenimente
+    CONFERENCE_CENTER, // Centru de conferințe
+    WAREHOUSE
 }

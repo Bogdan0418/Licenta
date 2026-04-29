@@ -1,0 +1,1 @@
+ALTER TABLE locations ADD COLUMN only_events BOOLEAN DEFAULT FALSE;

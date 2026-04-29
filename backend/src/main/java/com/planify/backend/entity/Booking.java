@@ -47,4 +47,25 @@ public class Booking extends BaseEntity {
 
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
+
+    @Column(name = "is_event")
+    private boolean isEvent;
+
+    @Column(name = "guest_count")
+    private Integer guestCount;
+
+    @Column(name = "event_start_time")
+    private LocalDateTime eventStartTime;
+
+    @Column(name = "event_end_time")
+    private LocalDateTime eventEndTime;
+
+    @Column(name = "event_end_date")
+    private LocalDate eventEndDate;
+
+    @Column(name = "event_description", columnDefinition = "TEXT")
+    private String eventDescription;
+
+    @Column(name = "special_requests", columnDefinition = "TEXT")
+    private String specialRequests;
 }

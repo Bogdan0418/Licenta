@@ -114,4 +114,18 @@ public class Location extends BaseEntity {
 
     @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VenueZone> zones = new ArrayList<>();
+
+    @Column(name = "allows_events")
+    private boolean allowsEvents;
+
+    @Column(name = "max_event_capacity")
+    private Integer maxEventCapacity;
+
+    @ElementCollection
+    @CollectionTable(name = "location_event_types", joinColumns = @JoinColumn(name = "location_id"))
+    @Column(name = "event_type")
+    private List<String> eventTypes; // ex: ["Nunta", "Botez", "Corporate"]
+
+    @Column(name = "only_events")
+    private boolean onlyEvents;
 }

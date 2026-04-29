@@ -40,6 +40,8 @@ export interface LocationDetail {
     facilities: string[];
     zones: Zone[];
     isFavorite: boolean;
+    allowsEvents?: boolean;
+    onlyEvents?: boolean;
 }
 
 export interface Zone {
@@ -67,9 +69,12 @@ export interface Booking {
     startTime: string;
     endTime: string;
     groupSize: number;
-    status: 'CONFIRMED' | 'CANCELLED_BY_USER' | 'CANCELLED_NO_SHOW' | 'COMPLETED';
+    status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED_BY_USER' | 'CANCELLED_NO_SHOW' | 'PENDING' | 'REJECTED';
     canCancel: boolean;
     canReview: boolean;
+    eventEndDate?: string;
+    eventDescription?: string;
+    specialRequests?: string;
 }
 
 export interface Review {

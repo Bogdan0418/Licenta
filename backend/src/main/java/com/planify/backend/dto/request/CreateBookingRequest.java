@@ -18,11 +18,21 @@ public record CreateBookingRequest(
         @NotNull(message = "Ora de început este obligatorie")
         LocalTime startTime,
 
-        @NotNull(message = "Durata rezervării este obligatorie")
         @Min(value = 1, message = "Durata trebuie să fie mai mare de 0")
-        Integer duration,  // <-- Acest câmp a fost adăugat!
+        Integer duration,
+
+        @NotNull(message = "Specificarea tipului de rezervare este obligatorie")
+        boolean isEvent,
+
+        LocalTime endTime,
 
         @NotNull(message = "Dimensiunea grupului este obligatorie")
         @Min(value = 1, message = "Grupul trebuie să aibă cel puțin o persoană")
-        Integer groupSize
+        Integer groupSize,
+
+        // --- CÂMPURI NOI PENTRU EVENIMENTE ---
+        LocalDate eventEndDate, // Opțional: dacă evenimentul se termină în altă zi
+        String eventDescription, // Ce fel de eveniment e (detalii)
+        String specialRequests // Cerințe speciale (meniu, aranjament etc.)
+
 ) {}

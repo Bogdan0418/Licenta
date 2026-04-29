@@ -27,7 +27,16 @@ public record RegisterLocationRequest(
         String facebookUrl,
         String tiktokUrl,
 
-        List<String> facilities, // Modificat aici
+        List<String> facilities,
+
+        // --- CÂMPURI NOI PENTRU EVENIMENTE ---
+        boolean allowsEvents, // Casuta de bifat (true/false)
+        boolean onlyEvents,
+        @Min(value = 0, message = "Capacitatea nu poate fi negativă")
+        Integer maxEventCapacity, // Numărul maxim de persoane
+
+        List<String> eventTypes, // Lista: Nuntă, Botez, Conferință, etc.
+        // -------------------------------------
 
         // Date cont
         @NotBlank @Email String ownerEmail,

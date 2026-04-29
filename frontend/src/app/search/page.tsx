@@ -17,6 +17,7 @@ export default function SearchPage() {
         searchTerm: searchParams.get('q') || '',
         radiusKm: '8',
         facilities: [] as string[],
+        allowsEvents: searchParams.get('events') === 'true' || false, // ADĂUGAT
     });
     
     const [userLocation, setUserLocation] = useState<{
@@ -24,11 +25,16 @@ export default function SearchPage() {
     } | null>(null);
 
     const { data: rawLocations, isLoading } = useQuery({
-        queryKey: ['locations', filters.type, filters.searchTerm, filters.radiusKm, userLocation],
+        // Adăugăm allowsEvents în queryKey ca React Query să refacă request-ul când se schimbă
+        queryKey: ['locations', filters.type, filters.searchTerm, filters.radiusKm, userLocation, filters.allowsEvents],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (filters.type) params.set('type', filters.type);
             if (filters.searchTerm) params.set('searchTerm', filters.searchTerm);
+            
+            // Trimitem parametrul allowsEvents la backend
+            if (filters.allowsEvents) params.set('allowsEvents', 'true'); 
+            
             if (userLocation && filters.radiusKm) {
                 params.set('lat', userLocation.lat.toString());
                 params.set('lng', userLocation.lng.toString());
