@@ -35,4 +35,12 @@ api.interceptors.response.use(
     }
 );
 
+// --- ENDPOINT-URI PENTRU FAVORITE ---
+export const favoritesApi = {
+    getFavorites: async () => (await api.get('/api/user/favorites')).data,
+    checkFavorite: async (publicId: string) => (await api.get(`/api/user/favorites/${publicId}/check`)).data,
+    addFavorite: async (publicId: string) => (await api.post(`/api/user/favorites/${publicId}`)).data,
+    removeFavorite: async (publicId: string) => (await api.delete(`/api/user/favorites/${publicId}`)).data,
+};
+
 export default api;

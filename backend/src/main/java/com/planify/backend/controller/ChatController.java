@@ -85,7 +85,7 @@ public class ChatController {
 
     // 4. Preluăm toate conversațiile active pentru o locație (pentru Dashboard Locație)
     @GetMapping("/location/active")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getActiveLocationChats(HttpServletRequest request) {
         Long locationId = extractLocationId(request);
@@ -157,7 +157,7 @@ public class ChatController {
 
     // 5. Preluăm numărul de mesaje necitite pentru client
     @GetMapping("/user/unread")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getUserUnreadMessages(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);

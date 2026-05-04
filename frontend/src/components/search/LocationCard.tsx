@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Star, MapPin, Navigation } from 'lucide-react';
 import { LocationSummary } from '@/types';
+import { FavoriteButton } from '@/components/ui/FavoriteButton';
 
 const typeLabels: Record<string, string> = {
     RESTAURANT: 'Restaurant', BAR: 'Bar', CLUB: 'Club',
@@ -18,13 +19,19 @@ interface Props {
 export function LocationCard({ location }: Props) {
     return (
         <Link href={`/location/${location.id}`}>
-            <div className="group bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-[#C5A059]/50 transition-all duration-500 cursor-pointer flex flex-col h-full">
+            <div className="group bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-[#C5A059]/50 transition-all duration-500 cursor-pointer flex flex-col h-full relative">
 
                 {/* Poza */}
                 <div className="relative h-56 bg-[#0f0f11] flex items-center justify-center overflow-hidden">
+                    
+                    {/* --- BUTON FAVORITE ABSOLUT PESTE IMAGINE --- */}
+                    <div className="absolute top-3 right-3 z-30">
+                        <FavoriteButton locationPublicId={location.publicId} />
+                    </div>
+
                     {location.firstPhotoUrl ? (
                         <img
-                            src={`http://localhost:8080${location.firstPhotoUrl}`}
+                            src={`http://localhost:8080/${location.firstPhotoUrl.replace(/^\//, '')}`}
                             alt={location.displayName}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />

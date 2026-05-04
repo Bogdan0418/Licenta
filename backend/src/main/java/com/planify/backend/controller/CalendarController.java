@@ -45,7 +45,7 @@ public class CalendarController {
     // --- USER ---
 
     @PostMapping("/api/user/bookings")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<?> createBooking(
             @Valid @RequestBody CreateBookingRequest request,
             HttpServletRequest httpRequest) {
@@ -60,7 +60,7 @@ public class CalendarController {
     }
 
     @DeleteMapping("/api/user/bookings/{bookingId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<?> cancelBooking(
             @PathVariable Long bookingId,
             HttpServletRequest httpRequest) {
@@ -75,7 +75,7 @@ public class CalendarController {
     }
 
     @GetMapping("/api/user/bookings")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<BookingResponse>> getMyBookings(
             HttpServletRequest httpRequest) {
         Long userId = extractUserId(httpRequest);
@@ -85,14 +85,14 @@ public class CalendarController {
     // --- LOCATION ---
 
     @GetMapping("/api/location/zones")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<ZoneSummaryResponse>> getZones(HttpServletRequest httpRequest) {
         Long locationId = extractLocationId(httpRequest);
         return ResponseEntity.ok(calendarService.getLocationZones(locationId));
     }
 
     @PostMapping("/api/location/zones")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> createZone(
             @Valid @RequestBody CreateZoneRequest request,
             HttpServletRequest httpRequest) {
@@ -108,7 +108,7 @@ public class CalendarController {
     }
 
     @PutMapping("/api/location/zones/{zoneId}")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> updateZone(
             @PathVariable Long zoneId,
             @Valid @RequestBody CreateZoneRequest request,
@@ -123,7 +123,7 @@ public class CalendarController {
     }
 
     @DeleteMapping("/api/location/zones/{zoneId}")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> deleteZone(
             @PathVariable Long zoneId,
             HttpServletRequest httpRequest) {
@@ -137,7 +137,7 @@ public class CalendarController {
     }
 
     @GetMapping("/api/location/agenda")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<BookingResponse>> getAgenda(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate date,
@@ -148,7 +148,7 @@ public class CalendarController {
     }
 
     @PostMapping("/api/location/bookings/{bookingId}/no-show")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> markNoShow(
             @PathVariable Long bookingId,
             HttpServletRequest httpRequest) {
@@ -162,7 +162,7 @@ public class CalendarController {
     }
 
     @PostMapping("/api/location/bookings/{bookingId}/approve")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> approveEventBooking(
             @PathVariable Long bookingId,
             HttpServletRequest httpRequest) {
@@ -176,7 +176,7 @@ public class CalendarController {
     }
 
     @PostMapping("/api/location/bookings/{bookingId}/reject")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> rejectEventBooking(
             @PathVariable Long bookingId,
             HttpServletRequest httpRequest) {
@@ -190,7 +190,7 @@ public class CalendarController {
     }
 
     @GetMapping("/api/location/bookings")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<BookingResponse>> getLocationBookings(
             HttpServletRequest httpRequest) {
         Long locationId = extractLocationId(httpRequest);
@@ -208,5 +208,24 @@ public class CalendarController {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
         return Long.parseLong(publicId.substring(1));
+    }
+
+    @GetMapping("/api/dev/whoami")
+    public ResponseEntity<?> whoami(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null) return ResponseEntity.ok("No token");
+
+        String token = authHeader.substring(7);
+        // Returnează direct ce e în SecurityContext
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+
+        if (auth == null) return ResponseEntity.ok("auth=null");
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "principal", auth.getName(),
+                "authorities", auth.getAuthorities().toString(),
+                "authenticated", auth.isAuthenticated()
+        ));
     }
 }

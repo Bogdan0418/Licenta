@@ -1,14 +1,9 @@
 package com.planify.backend.service;
 
-import com.planify.backend.entity.Booking;
-import com.planify.backend.entity.Review;
-import com.planify.backend.entity.User;
-import com.planify.backend.entity.UserFavorite;
+import com.planify.backend.dto.response.LocationSummaryResponse;
+import com.planify.backend.entity.*;
 import com.planify.backend.entity.enums.ReviewerType;
-import com.planify.backend.repository.BookingRepository;
-import com.planify.backend.repository.ReviewRepository;
-import com.planify.backend.repository.UserFavoriteRepository;
-import com.planify.backend.repository.UserRepository;
+import com.planify.backend.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,17 +19,20 @@ public class UserService {
     private final BookingRepository bookingRepository;
     private final ReviewRepository reviewRepository;
     private final UserFavoriteRepository favoriteRepository;
+    private final LocationRepository locationRepository;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        BookingRepository bookingRepository,
                        ReviewRepository reviewRepository,
-                       UserFavoriteRepository favoriteRepository) {
+                       UserFavoriteRepository favoriteRepository,
+                       LocationRepository locationRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.bookingRepository = bookingRepository;
         this.reviewRepository = reviewRepository;
         this.favoriteRepository = favoriteRepository;
+        this.locationRepository = locationRepository;
     }
 
     @Transactional
@@ -68,5 +66,68 @@ public class UserService {
 
         // 5. La final, ștergem utilizatorul (și restul datelor dacă există cascade ON DELETE în DB)
         userRepository.delete(user);
+    }
+
+    @Transactional
+    public void addFavorite(Long userId, String locationPublicId) {
+        Location location = locationRepository.findByPublicId(locationPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită."));
+
+        if (!favoriteRepository.existsByUserIdAndLocationId(userId, location.getId())) {
+            User user = userRepository.findById(userId).orElseThrow();
+            UserFavorite favorite = new UserFavorite();
+            favorite.setId(new UserFavoriteId(userId, location.getId()));
+            favorite.setUser(user);
+            favorite.setLocation(location);
+            favoriteRepository.save(favorite);
+        }
+    }
+
+    @Transactional
+    public void removeFavorite(Long userId, String locationPublicId) {
+        Location location = locationRepository.findByPublicId(locationPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită."));
+
+        favoriteRepository.deleteByUserIdAndLocationId(userId, location.getId());
+    }
+
+    public boolean isFavorite(Long userId, String locationPublicId) {
+        Location location = locationRepository.findByPublicId(locationPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Locația nu a fost găsită."));
+        return favoriteRepository.existsByUserIdAndLocationId(userId, location.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocationSummaryResponse> getUserFavorites(Long userId) {
+        List<UserFavorite> favorites = favoriteRepository.findByUserId(userId);
+
+        return favorites.stream()
+                .map(UserFavorite::getLocation)
+                .map(loc -> {
+                    // Extragem prima poza (daca exista) - ajusteaza in functie de cum sunt salvate in Entity
+                    String firstPhotoUrl = (loc.getPhotos() != null && !loc.getPhotos().isEmpty())
+                            ? "/uploads/" + loc.getPhotos().get(0).getFilePath() : null;
+
+                    // Extragem facilitatile
+                    List<String> facilities = loc.getFacilities() != null
+                            ? loc.getFacilities().stream().map(f -> f.getFacility()).toList()
+                            : List.of();
+
+                    return new LocationSummaryResponse(
+                            loc.getId(),
+                            loc.getPublicId(),
+                            loc.getDisplayName(),
+                            loc.getType(),
+                            loc.getAddress(),
+                            loc.getLatitude(),
+                            loc.getLongitude(),
+                            loc.getRating(),
+                            loc.getRatingCount(),
+                            firstPhotoUrl,
+                            facilities,
+                            null // distanceKm este null pentru favorite
+                    );
+                })
+                .toList();
     }
 }

@@ -26,7 +26,7 @@ public class ReviewController {
 
     // Utilizatorul lasa review locatiei
     @PostMapping("/api/user/reviews")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<?> addUserReview(
             @Valid @RequestBody CreateReviewRequest request,
             HttpServletRequest httpRequest) {
@@ -42,7 +42,7 @@ public class ReviewController {
 
     // Locatia lasa rating clientului
     @PostMapping("/api/location/reviews")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> addLocationReview(
             @Valid @RequestBody CreateReviewRequest request,
             HttpServletRequest httpRequest) {
@@ -66,7 +66,7 @@ public class ReviewController {
 
     // Raportare review inadecvat
     @PostMapping("/api/user/reviews/{reviewId}/report")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<?> reportReview(
             @PathVariable Long reviewId,
             HttpServletRequest httpRequest) {
@@ -87,14 +87,14 @@ public class ReviewController {
     }
 
     @GetMapping("/api/user/reviews/received")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<ReviewResponse>> getReceivedReviews(HttpServletRequest httpRequest) {
         Long userId = extractId(httpRequest);
         return ResponseEntity.ok(reviewService.getUserReceivedReviews(userId));
     }
 
     @GetMapping("/api/user/reviews/given")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<ReviewResponse>> getGivenReviews(HttpServletRequest httpRequest) {
         Long userId = extractId(httpRequest);
         return ResponseEntity.ok(reviewService.getUserGivenReviews(userId));
@@ -102,7 +102,7 @@ public class ReviewController {
 
     // Review-urile pe care locatia le-a PRIMIT
     @GetMapping("/api/location/reviews/received")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<ReviewResponse>> getLocationReceivedReviews(HttpServletRequest httpRequest) {
         Long locationId = extractId(httpRequest);
         // Putem folosi direct metoda existenta
@@ -111,7 +111,7 @@ public class ReviewController {
 
     // Review-urile pe care locatia le-a OFERIT clienților
     @GetMapping("/api/location/reviews/given")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<ReviewResponse>> getLocationGivenReviews(HttpServletRequest httpRequest) {
         Long locationId = extractId(httpRequest);
         return ResponseEntity.ok(reviewService.getLocationGivenReviews(locationId));
@@ -119,7 +119,7 @@ public class ReviewController {
 
     // Raportare review de către LOCAȚIE
     @PostMapping("/api/location/reviews/{reviewId}/report")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> reportReviewLocation(
             @PathVariable Long reviewId,
             HttpServletRequest httpRequest) {

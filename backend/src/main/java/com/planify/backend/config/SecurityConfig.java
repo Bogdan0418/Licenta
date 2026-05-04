@@ -59,15 +59,21 @@ public class SecurityConfig {
 
                         // Rute doar pentru USER
                         .requestMatchers("/api/user/**")
-                        .hasRole("USER")
+                        .hasAuthority("USER")
+
+                        .requestMatchers("/api/chat/**")
+                        .authenticated()
 
                         // Rute doar pentru LOCATION
                         .requestMatchers("/api/location/**")
-                        .hasRole("LOCATION")
+                        .hasAuthority("LOCATION")
+
+                        .requestMatchers("/api/chat/**")
+                        .hasAuthority("LOCATION")
 
                         // Rute doar pentru ADMIN
                         .requestMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
+                        .hasAuthority("ADMIN")
 
                         // Orice altceva necesita autentificare
                         .anyRequest().authenticated()

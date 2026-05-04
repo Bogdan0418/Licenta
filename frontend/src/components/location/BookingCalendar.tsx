@@ -34,9 +34,9 @@ export function BookingCalendar({ location }: Props) {
     const [isEvent, setIsEvent] = useState(location.onlyEvents || false);
     const [eventStart, setEventStart] = useState('');
     const [eventEnd, setEventEnd] = useState('');
-    const [eventEndDate, setEventEndDate] = useState(selectedDate); // NOU
-    const [eventDescription, setEventDescription] = useState(''); // NOU
-    const [specialRequests, setSpecialRequests] = useState(''); // NOU
+    const [eventEndDate, setEventEndDate] = useState(selectedDate);
+    const [eventDescription, setEventDescription] = useState('');
+    const [specialRequests, setSpecialRequests] = useState('');
 
     // Când se schimbă data de început, resetăm data de final ca să fie cel puțin egală cu ea
     useEffect(() => {
@@ -59,8 +59,6 @@ export function BookingCalendar({ location }: Props) {
         enabled: !!selectedZone && !isEvent,
     });
 
-    const selectedSlotData = slots?.find(s => s.startTime === selectedSlot);
-
     useEffect(() => {
         if (currentZone && currentZone.allowedDurations?.length > 0) {
             setSelectedDuration(currentZone.allowedDurations[0]);
@@ -78,9 +76,9 @@ export function BookingCalendar({ location }: Props) {
                     startTime: eventStart + ':00', 
                     endTime: eventEnd + ':00',
                     duration: 1,
-                    eventEndDate: eventEndDate, // NOU
-                    eventDescription: eventDescription, // NOU
-                    specialRequests: specialRequests // NOU
+                    eventEndDate: eventEndDate,
+                    eventDescription: eventDescription,
+                    specialRequests: specialRequests
                 } : {
                     startTime: selectedSlot,
                     duration: selectedDuration,
@@ -118,6 +116,15 @@ export function BookingCalendar({ location }: Props) {
             if (!selectedSlot) { setError('Selectează un slot orar'); return; }
         }
         createBooking();
+    };
+
+    // FUNCȚIA NOUĂ: Calculează ora de sfârșit a slotului
+    const getEndTime = (startTime: string, durationMinutes: number) => {
+        const [hours, minutes] = startTime.split(':').map(Number);
+        const totalMinutes = hours * 60 + minutes + durationMinutes;
+        const endH = Math.floor(totalMinutes / 60) % 24;
+        const endM = totalMinutes % 60;
+        return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
     };
 
     const availableDates = Array.from({ length: 30 }, (_, i) =>
@@ -192,7 +199,6 @@ export function BookingCalendar({ location }: Props) {
             {/* LOGICĂ RAMIFICATĂ */}
             {!isEvent ? (
                 <>
-                    {/* ... (PĂSTREAZĂ CODUL TĂU PENTRU REZERVARE STANDARD CU DURATĂ ȘI SLOTURI AICI, L-AM OMIS CA SĂ FIE MAI SCURT, RĂMÂNE IDENTIC) ... */}
                     {/* Durată Standard */}
                     <div>
                         <label className="text-[10px] font-light text-zinc-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
@@ -221,13 +227,13 @@ export function BookingCalendar({ location }: Props) {
                         ) : slots?.length === 0 ? (
                             <p className="text-xs text-zinc-500 font-light text-center py-4 bg-white/5 rounded-xl border border-white/5">Niciun slot disponibil.</p>
                         ) : (
-                            <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                                 {slots?.map((slot) => (
                                     <button
                                         key={slot.startTime}
                                         onClick={() => slot.disponibil && setSelectedSlot(slot.startTime)}
                                         disabled={!slot.disponibil}
-                                        className={`py-2 rounded-lg text-xs font-medium border transition-all ${
+                                        className={`py-2 px-1 rounded-lg text-xs font-medium border transition-all ${
                                             selectedSlot === slot.startTime 
                                                 ? 'bg-[#C5A059] text-black border-[#C5A059] shadow-[0_0_10px_rgba(197,160,89,0.3)]' 
                                                 : slot.disponibil 
@@ -235,7 +241,8 @@ export function BookingCalendar({ location }: Props) {
                                                     : 'bg-white/5 border-white/5 text-zinc-600 cursor-not-allowed'
                                         }`}
                                     >
-                                        {slot.startTime.substring(0, 5)}
+                                        {/* AICI AFIȘĂM INTERVALUL COMPLET */}
+                                        {slot.startTime.substring(0, 5)} - {getEndTime(slot.startTime, selectedDuration)}
                                         {slot.disponibil && <span className="block text-[9px] font-light opacity-80 mt-0.5">{slot.locuriLibere} locuri</span>}
                                     </button>
                                 ))}
@@ -244,7 +251,7 @@ export function BookingCalendar({ location }: Props) {
                     </div>
                 </>
             ) : (
-                /* Evenimente - ACTUALIZAT */
+                /* Evenimente */
                 <div className="bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-xl p-4 space-y-4 animate-slide-up">
                     <p className="text-xs text-[#C5A059] font-medium leading-relaxed">
                         Nu uitați! Aceasta este o cerere care trebuie trimisă pentru a o aproba locația.

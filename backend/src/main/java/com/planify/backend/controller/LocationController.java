@@ -57,13 +57,13 @@ public class LocationController {
     }
 
     @PutMapping("/api/location/status/toggle")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> toggleStatus() {
         return ResponseEntity.ok("În dezvoltare");
     }
 
     @GetMapping("/api/location/profile")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
         Long locationId = extractLocationId(request);
         Location location = locationRepository.findById(locationId).orElseThrow();
@@ -90,7 +90,7 @@ public class LocationController {
     }
 
     @PostMapping("/api/location/photos")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> uploadPhoto(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
         try {
             Long locationId = extractLocationId(request);
@@ -102,7 +102,7 @@ public class LocationController {
     }
 
     @DeleteMapping("/api/location/photos/{photoId}")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> deletePhoto(@PathVariable Long photoId, HttpServletRequest request) {
         try {
             Long locationId = extractLocationId(request);
@@ -114,7 +114,7 @@ public class LocationController {
     }
 
     @PutMapping("/api/location/profile")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, Object> updates, HttpServletRequest request) {
         try {
             Long locationId = extractLocationId(request);
@@ -139,7 +139,7 @@ public class LocationController {
     }
 
     @DeleteMapping("/api/location/account")
-    @PreAuthorize("hasRole('LOCATION')")
+    @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> deleteAccount(@RequestBody Map<String, String> requestBody, HttpServletRequest request) {
         try {
             Long locationId = extractLocationId(request);
