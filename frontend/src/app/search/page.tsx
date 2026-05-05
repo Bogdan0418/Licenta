@@ -17,7 +17,7 @@ export default function SearchPage() {
         searchTerm: searchParams.get('q') || '',
         radiusKm: '8',
         facilities: [] as string[],
-        allowsEvents: searchParams.get('events') === 'true' || false, // ADĂUGAT
+        allowsEvents: searchParams.get('events') === 'true' || false, 
     });
     
     const [userLocation, setUserLocation] = useState<{
@@ -25,14 +25,12 @@ export default function SearchPage() {
     } | null>(null);
 
     const { data: rawLocations, isLoading } = useQuery({
-        // Adăugăm allowsEvents în queryKey ca React Query să refacă request-ul când se schimbă
         queryKey: ['locations', filters.type, filters.searchTerm, filters.radiusKm, userLocation, filters.allowsEvents],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (filters.type) params.set('type', filters.type);
             if (filters.searchTerm) params.set('searchTerm', filters.searchTerm);
             
-            // Trimitem parametrul allowsEvents la backend
             if (filters.allowsEvents) params.set('allowsEvents', 'true'); 
             
             if (userLocation && filters.radiusKm) {
@@ -45,10 +43,28 @@ export default function SearchPage() {
         },
     });
 
+    // --- AICI ESTE MODIFICAREA ---
     const locations = rawLocations?.filter(loc => {
-        if (!filters.facilities || filters.facilities.length === 0) return true;
-        if (!loc.facilities) return false;
-        return filters.facilities.every(f => loc.facilities.includes(f));
+        // 1. Filtrare strictă după nume (displayName)
+        if (filters.searchTerm && filters.searchTerm.trim() !== '') {
+            const searchLower = filters.searchTerm.toLowerCase().trim();
+            const nameLower = (loc.displayName || '').toLowerCase();
+            
+            // Dacă numele locației NU conține textul căutat, o excludem din listă
+            if (!nameLower.includes(searchLower)) {
+                return false;
+            }
+        }
+
+        // 2. Filtrare după facilități (logica ta originală)
+        if (filters.facilities && filters.facilities.length > 0) {
+            if (!loc.facilities) return false;
+            const hasAllFacilities = filters.facilities.every(f => loc.facilities.includes(f));
+            if (!hasAllFacilities) return false;
+        }
+
+        // Dacă a trecut de toate filtrele, o păstrăm
+        return true;
     });
 
     const handleGetLocation = () => {

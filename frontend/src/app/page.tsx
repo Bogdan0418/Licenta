@@ -9,7 +9,8 @@ export default function HomePage() {
             <Navbar />
 
             {/* Hero Section Cinematic */}
-            <section className="relative flex items-center justify-center min-h-[70vh] px-4 overflow-hidden">
+            {/* AM MODIFICAT AICI: Am scos 'overflow-hidden' și am adăugat 'z-50' */}
+            <section className="relative flex items-center justify-center min-h-[70vh] px-4 z-50">
                 {/* Background Image cu Overlay */}
                 <div 
                     className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -18,7 +19,8 @@ export default function HomePage() {
                     <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0b]/80 via-[#0a0a0b]/60 to-[#0a0a0b]"></div>
                 </div>
 
-                <div className="relative z-10 max-w-4xl mx-auto text-center mt-10 animate-slide-up">
+                {/* AM MODIFICAT AICI: Am schimbat 'z-10' în 'z-[100]' pentru a prioritiza meniul derulant */}
+                <div className="relative z-[100] max-w-4xl mx-auto text-center mt-10 animate-slide-up w-full">
                     <h1 className="text-5xl md:text-7xl font-serif text-white mb-6 tracking-tight">
                         Unde ieșim azi?
                     </h1>

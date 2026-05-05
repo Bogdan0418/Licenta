@@ -10,13 +10,13 @@ import { ro } from 'date-fns/locale';
 import { 
     Calendar, Users, Loader2, Plus, Star, MessageSquare, 
     History, Check, Edit2, Trash2, Upload, Image as ImageIcon,
-    BarChart3, TrendingUp, Clock, AlertTriangle, MapPin
+    BarChart3, TrendingUp, Clock, AlertTriangle, MapPin, MessageCircle
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Booking, Review, Zone } from '@/types';
 import { facilityLabels } from '@/lib/utils';
-import { MessageCircle } from 'lucide-react'; // adauga asta la importurile de la lucide-react
 import { ChatModal } from '@/components/chat/ChatModal';
+import { DashboardCharts } from '@/components/location/DashboardCharts'; // Make sure this path is correct based on where you saved it
 
 const DAYS = [
     { key: 'MON', label: 'Luni' }, { key: 'TUE', label: 'Marți' },
@@ -108,7 +108,7 @@ export default function LocationDashboardPage() {
         queryKey: ['location-chats'],
         queryFn: async () => (await api.get('/api/chat/location/active')).data as any[],
         enabled: !!user,
-        refetchInterval: 5000, // Verifică mesaje noi din 5 in 5 secunde
+        refetchInterval: 5000,
     });
 
     const handleAddCustomFacility = () => {
@@ -125,15 +125,16 @@ export default function LocationDashboardPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['agenda'] });
             queryClient.invalidateQueries({ queryKey: ['location-bookings'] });
+            queryClient.invalidateQueries({ queryKey: ['location-charts'] }); // Also refresh charts
         }
     });
 
-    // MUTAȚII NOI PENTRU EVENIMENTE
     const { mutate: approveEvent } = useMutation({
         mutationFn: async (id: number) => api.post(`/api/location/bookings/${id}/approve`),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['agenda'] });
             queryClient.invalidateQueries({ queryKey: ['location-bookings'] });
+            queryClient.invalidateQueries({ queryKey: ['location-charts'] }); // Also refresh charts
         }
     });
 
@@ -238,27 +239,7 @@ export default function LocationDashboardPage() {
     }
 
     const pastBookings = allBookings?.filter(b => ['COMPLETED', 'CANCELLED_BY_USER', 'CANCELLED_NO_SHOW'].includes(b.status)) || [];
-    const validBookings = allBookings?.filter(b => b.status === 'CONFIRMED' || b.status === 'COMPLETED') || [];
     const pendingBookings = allBookings?.filter(b => b.status === 'PENDING') || [];
-
-    const bookingsToday = validBookings.filter(b => isToday(parseISO(b.bookingDate))).length;
-    const bookingsThisWeek = validBookings.filter(b => isThisWeek(parseISO(b.bookingDate), { weekStartsOn: 1 })).length;
-    const bookingsThisMonth = validBookings.filter(b => isThisMonth(parseISO(b.bookingDate))).length;
-    
-    const totalGuests = validBookings.reduce((sum, b) => sum + b.groupSize, 0);
-
-    const hourCounts: Record<string, number> = {};
-    const dayCounts: Record<string, number> = {};
-
-    validBookings.forEach(b => {
-        const hour = b.startTime.substring(0, 5);
-        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-        const dayName = format(parseISO(b.bookingDate), 'EEEE', { locale: ro });
-        dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
-    });
-
-    const topHour = Object.keys(hourCounts).length > 0 ? Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0][0] : 'N/A';
-    const topDay = Object.keys(dayCounts).length > 0 ? Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0][0] : 'N/A';
 
     const statusColors: Record<string, string> = {
         CONFIRMED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -283,16 +264,16 @@ export default function LocationDashboardPage() {
             <Navbar />
             <div className="max-w-7xl mx-auto px-4 space-y-6">
 
-                {/* --- HEADER & KPIs --- */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                {/* --- HEADER & CHARTS --- */}
+                <div className="grid grid-cols-1 gap-6">
                     {/* Header Info */}
-                    <div className="md:col-span-12 lg:col-span-4 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col sm:flex-row justify-between sm:items-center">
                         <div>
                             <h1 className="text-2xl font-serif text-white mb-1">{profile?.name || 'Dashboard Locație'}</h1>
                             <p className="text-zinc-400 text-sm font-light">Control Center</p>
                         </div>
                         {profile && (
-                            <div className="mt-6 flex items-center gap-4 bg-white/5 border border-white/10 p-3.5 rounded-xl w-fit">
+                            <div className="mt-4 sm:mt-0 flex items-center gap-4 bg-white/5 border border-white/10 p-3.5 rounded-xl w-fit">
                                 <div className="flex items-center gap-2">
                                     <Star size={18} className="text-[#C5A059] fill-[#C5A059]" />
                                     <span className="text-xl font-bold text-white">{profile.rating?.toFixed(1) || 'N/A'}</span>
@@ -305,52 +286,11 @@ export default function LocationDashboardPage() {
                         )}
                     </div>
 
-                    {/* KPI Cards */}
-                    <div className="md:col-span-12 lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <BarChart3 size={20} className="text-[#C5A059]" />
-                                <span className="text-[10px] font-light text-zinc-500 uppercase tracking-wider">Rezervări</span>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-white">{bookingsToday}</p>
-                                <p className="text-xs text-zinc-500 mt-1">Azi <span className="text-zinc-400">/ {bookingsThisWeek} săpt</span></p>
-                            </div>
-                        </div>
-
-                        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <Users size={20} className="text-[#C5A059]" />
-                                <span className="text-[10px] font-light text-zinc-500 uppercase tracking-wider">Clienți</span>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-white">{totalGuests}</p>
-                                <p className="text-xs text-zinc-500 mt-1">Total onorați</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <TrendingUp size={20} className="text-[#C5A059]" />
-                                <span className="text-[10px] font-light text-zinc-500 uppercase tracking-wider">Top Zi</span>
-                            </div>
-                            <div>
-                                <p className="text-xl font-bold text-white capitalize truncate">{topDay}</p>
-                                <p className="text-xs text-zinc-500 mt-1">Cea mai aglomerată</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <Clock size={20} className="text-[#C5A059]" />
-                                <span className="text-[10px] font-light text-zinc-500 uppercase tracking-wider">Top Oră</span>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-white">{topHour}</p>
-                                <p className="text-xs text-zinc-500 mt-1">Vârf de trafic</p>
-                            </div>
-                        </div>
-                    </div>
+                    {/* --- RECHARTS COMPONENT --- */}
+                    {/* Only render if profile is loaded and we have an ID */}
+                    {profile && profile.id && (
+                        <DashboardCharts locationId={profile.id} />
+                    )}
                 </div>
 
                 {/* --- BENTO GRID LAYOUT --- */}
@@ -358,7 +298,7 @@ export default function LocationDashboardPage() {
                     
                     {/* COLOANA STÂNGA (Operațional - 65%) */}
                     <div className="lg:col-span-8 space-y-6 flex flex-col">
-                        {/* --- NOU: CERERI EVENIMENTE ÎN AȘTEPTARE --- */}
+                        {/* CERERI EVENIMENTE ÎN AȘTEPTARE */}
                         {pendingBookings.length > 0 && (
                             <div className="bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-2xl p-6 flex flex-col h-fit animate-slide-up shadow-[0_0_20px_rgba(197,160,89,0.1)]">
                                 <h2 className="font-serif text-lg text-[#C5A059] mb-4 flex items-center gap-2">
@@ -416,7 +356,7 @@ export default function LocationDashboardPage() {
                                 </div>
                             </div>
                         )}
-                        {/* --- NOU: MESAJE ȘI CONVERSAȚII ACTIVE --- */}
+                        {/* MESAJE ȘI CONVERSAȚII ACTIVE */}
                         {activeChats && activeChats.length > 0 && (
                             <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col h-fit">
                                 <h2 className="font-serif text-lg text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">

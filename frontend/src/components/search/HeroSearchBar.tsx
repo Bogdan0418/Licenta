@@ -5,24 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Search, MapPin, Loader2, Star } from 'lucide-react';
 import api from '@/lib/api';
+import { LocationSummary } from '@/types'; // sau cum se numește tipul tău
 
-// Definim un tip rapid pentru ce primim de la backend
-interface SearchResult {
-    id: number;
-    displayName: string;
-    type: string;
-    rating?: number;
-}
-
-export function SearchSection() {
+export function HeroSearchBar() {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedTerm, setDebouncedTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // DEBOUNCE: Așteptăm 300ms după ce s-a oprit din tastat ca să facem request-ul.
-    // Așa evităm să dăm 10 request-uri dacă scrie "Restaurant" foarte repede.
+    // DEBOUNCE: Așteptăm 300ms după ce utilizatorul se oprește din tastat
+    // înainte să facem request-ul la backend, pentru a nu face spam de cereri.
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedTerm(searchTerm);
@@ -30,18 +23,24 @@ export function SearchSection() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Query către backend (același endpoint pe care îl folosești deja)
+    // Query-ul către backend care aduce rezultatele "Live"
     const { data: results, isLoading } = useQuery({
         queryKey: ['live-search', debouncedTerm],
         queryFn: async () => {
             if (!debouncedTerm.trim()) return [];
+            
             const res = await api.get(`/api/locations/public/search?searchTerm=${encodeURIComponent(debouncedTerm)}`);
-            return res.data as SearchResult[];
+            const allResults = res.data as LocationSummary[];
+
+            // FILTRARE STRICTĂ: Păstrăm doar locațiile care conțin textul căutat direct în nume (displayName)
+            return allResults.filter(loc => 
+                (loc.displayName || '').toLowerCase().includes(debouncedTerm.toLowerCase())
+            );
         },
-        enabled: debouncedTerm.length > 0, // Caută doar dacă a scris ceva
+        enabled: debouncedTerm.length > 0, // Se execută doar dacă avem text
     });
 
-    // Închide dropdown-ul dacă dă click oriunde altundeva pe ecran
+    // Închidem dropdown-ul dacă dăm click în afara lui
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -52,35 +51,24 @@ export function SearchSection() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // La apăsarea pe butonul mare de Căutare (sau Enter)
+    // Funcția care se execută când apeși pe butonul "Caută" sau dai Enter
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsDropdownOpen(false); // Închidem dropdown-ul oricum
-
         if (searchTerm.trim()) {
-            // Dacă a scris ceva, trimitem cu parametrul de căutare
+            setIsDropdownOpen(false);
             router.push(`/search?searchTerm=${encodeURIComponent(searchTerm)}`);
-        } else {
-            // Dacă e gol, îl ducem pur și simplu pe pagina generală de căutare
-            router.push(`/search`);
         }
     };
 
-    // La apăsarea directă pe un rezultat din dropdown
+    // Funcția care se execută când dai click direct pe un rezultat din dropdown
     const handleSelectLocation = (locationId: number) => {
         setIsDropdownOpen(false);
-        router.push(`/location/${locationId}`); // Mergem fix pe pagina locației
+        router.push(`/location/${locationId}`); // Mergem direct pe pagina locației
     };
-
-    // --- FILTRARE STRICTĂ ---
-    // Păstrăm DOAR rezultatele al căror nume conține textul tastat
-    const filteredResults = (results || []).filter(loc => 
-        (loc.displayName || '').toLowerCase().includes(searchTerm.toLowerCase().trim())
-    );
 
     return (
         <div className="relative w-full max-w-3xl mx-auto" ref={dropdownRef}>
-            {/* Formularul principal */}
+            {/* Formularul principal (Bara de căutare) */}
             <form 
                 onSubmit={handleSearchSubmit}
                 className="flex items-center bg-[#121214]/80 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-2xl transition-all focus-within:border-[#C5A059]/50"
@@ -92,7 +80,7 @@ export function SearchSection() {
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
-                            setIsDropdownOpen(true);
+                            setIsDropdownOpen(true); // Deschidem dropdown-ul când tastăm
                         }}
                         onFocus={() => {
                             if (searchTerm.length > 0) setIsDropdownOpen(true);
@@ -110,9 +98,9 @@ export function SearchSection() {
                 </button>
             </form>
 
-            {/* Dropdown-ul (Lista care se deschide dedesubt) */}
+            {/* Dropdown-ul cu Rezultate */}
             {isDropdownOpen && searchTerm.trim().length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-[#121214] border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#121214] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     
                     {/* Stare de Încărcare */}
                     {isLoading && (
@@ -121,52 +109,45 @@ export function SearchSection() {
                         </div>
                     )}
 
-                    {/* Fără rezultate (folosim filteredResults) */}
-                    {!isLoading && filteredResults.length === 0 && (
+                    {/* Fără rezultate */}
+                    {!isLoading && results?.length === 0 && (
                         <div className="p-6 text-center text-zinc-400 font-light text-sm">
                             Nu există această locație...
                         </div>
                     )}
 
-                    {/* Lista de locații găsite (folosim filteredResults) */}
-                    {!isLoading && filteredResults.length > 0 && (
+                    {/* Lista de rezultate */}
+                    {!isLoading && results && results.length > 0 && (
                         <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                            {/* Afișăm doar primele 5 rezultate ca să nu fie un dropdown imens */}
-                            {filteredResults.slice(0, 5).map((loc) => (
+                            {results.slice(0, 5).map((loc) => ( // Arătăm maxim 5 rezultate rapide
                                 <div 
                                     key={loc.id}
                                     onClick={() => handleSelectLocation(loc.id)}
                                     className="flex items-center justify-between p-4 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition-colors"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-[#C5A059]/10 p-2.5 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-[#C5A059]/10 p-2 rounded-lg">
                                             <MapPin size={18} className="text-[#C5A059]" />
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium text-sm md:text-base">{loc.displayName}</p>
-                                            <p className="text-xs text-zinc-500 font-light capitalize">
-                                                {loc.type?.toLowerCase() || 'Locație'}
-                                            </p>
+                                            <p className="text-white font-medium text-sm">{loc.displayName}</p>
+                                            <p className="text-xs text-zinc-500 font-light capitalize">{loc.type?.toLowerCase() || 'Locație'}</p>
                                         </div>
                                     </div>
-                                    
-                                    {/* Rating */}
-                                    <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1.5 rounded-lg">
+                                    <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-md">
                                         <Star size={12} className="text-[#C5A059] fill-[#C5A059]" />
-                                        <span className="text-xs text-zinc-300 font-bold">
-                                            {loc.rating ? loc.rating.toFixed(1) : '0.0'}
-                                        </span>
+                                        <span className="text-xs text-zinc-300 font-bold">{loc.rating?.toFixed(1) || '0.0'}</span>
                                     </div>
                                 </div>
                             ))}
                             
-                            {/* Dacă sunt mai multe, le zicem să dea click ca să vadă toată pagina */}
-                            {filteredResults.length > 5 && (
+                            {/* Buton "Vezi toate rezultatele" dacă sunt mai multe */}
+                            {results.length > 5 && (
                                 <div 
                                     onClick={handleSearchSubmit}
-                                    className="p-4 bg-[#C5A059]/5 hover:bg-[#C5A059]/10 text-center text-xs font-medium text-[#C5A059] cursor-pointer transition-colors"
+                                    className="p-3 bg-[#C5A059]/5 hover:bg-[#C5A059]/10 text-center text-xs font-medium text-[#C5A059] cursor-pointer transition-colors"
                                 >
-                                    Vezi toate cele {filteredResults.length} rezultate
+                                    Vezi toate cele {results.length} rezultate
                                 </div>
                             )}
                         </div>

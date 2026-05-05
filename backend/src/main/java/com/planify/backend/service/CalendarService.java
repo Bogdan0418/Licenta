@@ -12,6 +12,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.planify.backend.dto.response.DashboardChartsResponse;
+import com.planify.backend.dto.response.DashboardChartsResponse.DailyStatsResponse;
+import com.planify.backend.dto.response.DashboardChartsResponse.HourlyStatsResponse;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.LinkedHashMap;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -233,9 +240,15 @@ public class CalendarService {
             if (req.endTime() == null) {
                 throw new IllegalArgumentException("Ora de sfârșit este obligatorie pentru evenimente");
             }
-            if (reqStartMin < openMin) {
-                throw new IllegalArgumentException("Evenimentul nu poate începe înainte de deschiderea locației (" + openTime + ")");
+            if (req.eventEndDate() == null) {
+                throw new IllegalArgumentException("Data de sfârșit este obligatorie pentru evenimente");
             }
+            if (req.eventEndDate().isBefore(req.bookingDate())) {
+                throw new IllegalArgumentException("Data de sfârșit a evenimentului nu poate fi înaintea datei de început.");
+            }
+
+            // APELĂM NOUA METODĂ DE VALIDARE AICI:
+            validateEventSchedule(req.bookingDate(), req.eventEndDate(), req.startTime(), req.endTime(), config);
 
             endTime = req.endTime();
             initialStatus = BookingStatus.PENDING;
@@ -464,5 +477,163 @@ public class CalendarService {
         bookingRepository.save(booking);
 
         // Opțional: Aici poți trimite un email că locația nu poate găzdui evenimentul
+    }
+
+    private void validateEventSchedule(LocalDate startDate, LocalDate endDate,
+                                       LocalTime startTime, LocalTime endTime,
+                                       ZoneConfig config) {
+
+        Map<String, String> schedule = config.getSchedule();
+        if (schedule == null || schedule.isEmpty()) {
+            throw new IllegalArgumentException("Această zonă nu are un program definit.");
+        }
+
+        LocalDate currentDate = startDate;
+
+        while (!currentDate.isAfter(endDate)) {
+            String dayKey = currentDate.getDayOfWeek().name().substring(0, 3).toUpperCase();
+            String scheduleForDay = schedule.get(dayKey);
+
+            // 1. Verificăm dacă locația e închisă în acea zi
+            if (scheduleForDay == null || scheduleForDay.equalsIgnoreCase("Închis") || scheduleForDay.isBlank()) {
+                throw new IllegalArgumentException("Nu se pot ține evenimente. Locația este închisă în ziua de " + dayOfWeekToRomanian(currentDate.getDayOfWeek()) + " (" + currentDate + ").");
+            }
+
+            String[] timeParts = scheduleForDay.split("-");
+            LocalTime openTime = LocalTime.parse(timeParts[0]);
+            LocalTime closeTime = LocalTime.parse(timeParts[1]);
+
+            // 2. Prima zi a evenimentului
+            if (currentDate.isEqual(startDate)) {
+                if (startTime.isBefore(openTime)) {
+                    throw new IllegalArgumentException("Evenimentul începe prea devreme pe " + currentDate + ". Locația se deschide la " + openTime);
+                }
+
+                // Dacă e eveniment de o singură zi
+                if (startDate.isEqual(endDate)) {
+                    if (endTime.isAfter(closeTime)) {
+                        throw new IllegalArgumentException("Evenimentul se termină prea târziu pe " + currentDate + ". Locația se închide la " + closeTime);
+                    }
+                    if (startTime.isAfter(endTime)) {
+                        throw new IllegalArgumentException("Ora de început trebuie să fie înaintea orei de sfârșit.");
+                    }
+                }
+            }
+
+            // 3. Ultima zi a evenimentului (dacă e pe mai multe zile)
+            if (currentDate.isEqual(endDate) && !startDate.isEqual(endDate)) {
+                if (endTime.isAfter(closeTime)) {
+                    throw new IllegalArgumentException("Evenimentul se termină prea târziu pe " + currentDate + ". Locația se închide la " + closeTime);
+                }
+                if (endTime.isBefore(openTime)) {
+                    throw new IllegalArgumentException("Ora de final setată pe " + currentDate + " este înainte de deschiderea locației (" + openTime + ").");
+                }
+            }
+
+            currentDate = currentDate.plusDays(1);
+        }
+    }
+
+    // Metodă helper pentru mesaje de eroare mai prietenoase
+    private String dayOfWeekToRomanian(java.time.DayOfWeek day) {
+        switch (day) {
+            case MONDAY: return "Luni";
+            case TUESDAY: return "Marți";
+            case WEDNESDAY: return "Miercuri";
+            case THURSDAY: return "Joi";
+            case FRIDAY: return "Vineri";
+            case SATURDAY: return "Sâmbătă";
+            case SUNDAY: return "Duminică";
+            default: return day.name();
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardChartsResponse getDashboardChartsData(Long locationId) {
+        LocalDate today = LocalDate.now();
+        LocalDate sevenDaysAgo = today.minusDays(6); // Ultimele 7 zile inclusiv azi
+        LocalDate thirtyDaysAgo = today.minusDays(30);
+
+        List<BookingStatus> validStatuses = List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED);
+
+        // 1. Calcul pentru Graficul de Evoluție (Ultimele 7 zile)
+        List<Booking> recentBookings = bookingRepository.findByZoneLocationIdAndBookingDateBetweenAndStatusIn(
+                locationId, sevenDaysAgo, today, validStatuses
+        );
+
+        // Inițializăm un Map cu 0 pentru toate cele 7 zile (ca graficul să nu aibă "găuri" dacă nu sunt rezervări)
+        Map<LocalDate, int[]> dailyStatsMap = new LinkedHashMap<>();
+        for (int i = 0; i <= 6; i++) {
+            dailyStatsMap.put(sevenDaysAgo.plusDays(i), new int[]{0, 0}); // index 0 = rezervări, 1 = clienți
+        }
+
+        // Populăm cu datele reale
+        for (Booking b : recentBookings) {
+            int[] stats = dailyStatsMap.get(b.getBookingDate());
+            if (stats != null) {
+                stats[0] += 1; // Creștem nr de rezervări
+                stats[1] += b.getGroupSize(); // Adăugăm numărul de clienți
+            }
+        }
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMM", new Locale("ro", "RO"));
+        List<DashboardChartsResponse.DailyStatsResponse> evolutionData = dailyStatsMap.entrySet().stream()
+                .map(entry -> new DashboardChartsResponse.DailyStatsResponse(
+                        entry.getKey().format(formatter), // ex: "6 Mai"
+                        entry.getValue()[0],
+                        entry.getValue()[1]
+                )).toList();
+
+        // 2. Calcul pentru Graficul cu Orele de Vârf (Ultimele 30 zile)
+        List<Booking> monthBookings = bookingRepository.findByZoneLocationIdAndBookingDateBetweenAndStatusIn(
+                locationId, thirtyDaysAgo, today, validStatuses
+        );
+
+        // Mapăm ora de început (0-23) la numărul total de clienți (trafic)
+        Map<Integer, Integer> hourlyStatsMap = new LinkedHashMap<>();
+
+        // Inițializăm orele uzuale (de ex: de la 08:00 la 23:00) ca să arate bine pe grafic
+        for (int i = 8; i <= 23; i++) {
+            hourlyStatsMap.put(i, 0);
+        }
+
+        // ITERĂM PRIN TOATĂ DURATA REZERVĂRII
+        for (Booking b : monthBookings) {
+            int startHour = b.getStartTime().getHour();
+            int endHour = b.getEndTime().getHour();
+
+            // Dacă locația are program de noapte și se termină a doua zi (ex: 22:00 -> 03:00)
+            if (endHour <= startHour && !b.getStartTime().equals(b.getEndTime())) {
+                endHour += 24;
+            }
+
+            // Dacă rezervarea este scurtă, în cadrul aceleiași ore
+            if (startHour == endHour) {
+                hourlyStatsMap.put(startHour, hourlyStatsMap.getOrDefault(startHour, 0) + b.getGroupSize());
+            } else {
+                // Adăugăm grupul pentru FIECARE oră petrecută în locație
+                for (int i = startHour; i < endHour; i++) {
+                    int actualHour = i % 24; // Menținem ora între 0 și 23
+                    hourlyStatsMap.put(actualHour, hourlyStatsMap.getOrDefault(actualHour, 0) + b.getGroupSize());
+                }
+            }
+        }
+
+        List<DashboardChartsResponse.HourlyStatsResponse> peakHoursData = hourlyStatsMap.entrySet().stream()
+                .map(entry -> new DashboardChartsResponse.HourlyStatsResponse(
+                        String.format("%02d:00", entry.getKey()), // ex: "14:00"
+                        entry.getValue()
+                ))
+                // Sortăm logic orele ca noaptea târziu să apară la finalul graficului
+                .sorted((a, b) -> {
+                    int hourA = Integer.parseInt(a.ora().substring(0, 2));
+                    int hourB = Integer.parseInt(b.ora().substring(0, 2));
+                    if (hourA < 6) hourA += 24;
+                    if (hourB < 6) hourB += 24;
+                    return Integer.compare(hourA, hourB);
+                })
+                .toList();
+
+        return new DashboardChartsResponse(evolutionData, peakHoursData);
     }
 }

@@ -58,12 +58,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Construieste autoritatea cu prefixul ROLE_ explicit
                 var authority = new org.springframework.security.core.authority
                         .SimpleGrantedAuthority(role);
-                // LOG TEMPORAR:
-                System.out.println("=== JWT DEBUG ===");
-                System.out.println("Email: " + email);
-                System.out.println("Role din token: " + role);
-                System.out.println("Authority setată: " + authority.getAuthority());
-                System.out.println("=================");
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(

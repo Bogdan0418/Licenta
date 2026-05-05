@@ -8,12 +8,14 @@ import com.planify.backend.repository.LocationFacilityRepository;
 import com.planify.backend.repository.LocationPhotoRepository;
 import com.planify.backend.repository.LocationRepository;
 import com.planify.backend.security.JwtService;
+import com.planify.backend.service.CalendarService;
 import com.planify.backend.service.LocationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.planify.backend.dto.response.DashboardChartsResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -27,17 +29,19 @@ public class LocationController {
     private final JwtService jwtService;
     private final LocationPhotoRepository photoRepository;
     private final LocationFacilityRepository facilityRepository;
+    private final CalendarService calendarService;
 
     public LocationController(LocationService locationService,
                               LocationRepository locationRepository,
                               JwtService jwtService,
                               LocationPhotoRepository photoRepository,
-                              LocationFacilityRepository facilityRepository) {
+                              LocationFacilityRepository facilityRepository, CalendarService calendarService) {
         this.locationService = locationService;
         this.locationRepository = locationRepository;
         this.jwtService = jwtService;
         this.photoRepository = photoRepository;
         this.facilityRepository = facilityRepository;
+        this.calendarService = calendarService;
     }
 
     @GetMapping("/api/locations/public/search")
@@ -156,5 +160,13 @@ public class LocationController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "A apărut o eroare la ștergerea contului."));
         }
+    }
+
+    @GetMapping("/api/location/{locationId}/charts")
+    @PreAuthorize("hasAuthority('LOCATION')")
+    // @PreAuthorize("hasRole('LOCATION')") -> asigură-te că ruta este securizată cum ai tu logica
+    public ResponseEntity<DashboardChartsResponse> getLocationCharts(@PathVariable Long locationId) {
+        DashboardChartsResponse response = calendarService.getDashboardChartsData(locationId);
+        return ResponseEntity.ok(response);
     }
 }

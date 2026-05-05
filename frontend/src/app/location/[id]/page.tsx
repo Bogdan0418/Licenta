@@ -43,6 +43,28 @@ export default function LocationPage() {
 
     if (!location) return null;
 
+    // --- FIX FRONTEND PENTRU SINCRONIZAREA RECENZIILOR ---
+    // Calculăm rating-ul și numărul direct din array-ul efectiv de recenzii
+    let realRating = location.rating;
+    let realCount = location.ratingCount;
+
+    if (reviews) {
+        realCount = reviews.length;
+        if (realCount > 0) {
+            const sum = reviews.reduce((acc: number, curr: any) => acc + curr.rating, 0);
+            realRating = Number((sum / realCount).toFixed(1));
+        } else {
+            realRating = 0;
+        }
+    }
+
+    // Suprascriem proprietățile pe un obiect nou pentru a nu altera originalul
+    const syncedLocation = {
+        ...location,
+        rating: realRating,
+        ratingCount: realCount
+    };
+
     return (
         <div className="min-h-screen bg-[#0a0a0b] text-zinc-200 pt-24 pb-12">
             <Navbar />
@@ -55,7 +77,10 @@ export default function LocationPage() {
                             photos={location.photoUrls}
                             name={location.displayName}
                         />
-                        <LocationInfo location={location} />
+                        
+                        {/* Trimitem obiectul sincronizat către componenta care îl afișează */}
+                        <LocationInfo location={syncedLocation} />
+                        
                         <ReviewsList reviews={reviews || []} />
                     </div>
 

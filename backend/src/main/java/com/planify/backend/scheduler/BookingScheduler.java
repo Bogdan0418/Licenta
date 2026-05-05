@@ -32,9 +32,16 @@ public class BookingScheduler {
                 .findAll()
                 .stream()
                 .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
-                .filter(b -> b.getBookingDate().isBefore(today) ||
-                        (b.getBookingDate().isEqual(today) &&
-                                b.getEndTime().isBefore(now)))
+                .filter(b -> {
+                    // Determinam data reala de sfarsit (fallback pe bookingDate pentru rezervari normale)
+                    LocalDate effectiveEndDate = b.getEventEndDate() != null
+                            ? b.getEventEndDate()
+                            : b.getBookingDate();
+
+                    // Verificam in functie de data de sfarsit
+                    return effectiveEndDate.isBefore(today) ||
+                            (effectiveEndDate.isEqual(today) && b.getEndTime().isBefore(now));
+                })
                 .toList();
 
         confirmedBookings.forEach(b -> b.setStatus(BookingStatus.COMPLETED));

@@ -97,4 +97,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByIsReportedTrue();
 
     Optional<Review> findByBookingIdAndReviewerType(Long bookingId, ReviewerType reviewerType);
+
+    @Query("SELECT r FROM Review r WHERE r.booking.zone.location.id = :locationId")
+    List<Review> findByLocationId(@Param("locationId") Long locationId);
 }

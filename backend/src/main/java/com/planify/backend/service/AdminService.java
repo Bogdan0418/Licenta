@@ -186,8 +186,36 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Review-ul nu a fost găsit"));
 
+        // 1. Păstrăm o referință către locație ÎNAINTE să ștergem recenzia
+        // (Ajustează linia asta dacă relația ta din entitate e diferită, ex: review.getBooking().getZone().getLocation())
+        Location location = review.getBooking().getZone().getLocation();
+
+        // 2. Ștergem recenzia
         reviewRepository.delete(review);
 
+        // 3. Extragem toate recenziile rămase pentru această locație
+        // (Asigură-te că ai o metodă findByLocationId în ReviewRepository)
+        List<Review> remainingReviews = reviewRepository.findByLocationId(location.getId());
+
+        // 4. Recalculăm numărul și media
+        int newCount = remainingReviews.size();
+        double newAverage = 0.0;
+
+        if (newCount > 0) {
+            newAverage = remainingReviews.stream()
+                    .mapToDouble(Review::getRating) // Presupunând că ai metoda getRating() care întoarce o valoare numerică
+                    .average()
+                    .orElse(0.0);
+        }
+
+        // 5. Actualizăm și salvăm locația
+        location.setRatingCount(newCount);
+        // Din ce am văzut în CalendarService, folosești BigDecimal pentru rating.
+        location.setRating(new java.math.BigDecimal(String.format("%.2f", newAverage)));
+
+        locationRepository.save(location); // Asigură-te că ai LocationRepository injectat în această clasă!
+
+        // 6. Salvăm audit log-ul
         saveAuditLog(adminId, "DELETE_REVIEW",
                 "REVIEW", reviewId,
                 "Review-ul #" + reviewId + " a fost șters");
