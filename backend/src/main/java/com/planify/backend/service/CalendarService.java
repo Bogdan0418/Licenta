@@ -593,7 +593,7 @@ public class CalendarService {
         Map<Integer, Integer> hourlyStatsMap = new LinkedHashMap<>();
 
         // Inițializăm orele uzuale (de ex: de la 08:00 la 23:00) ca să arate bine pe grafic
-        for (int i = 8; i <= 23; i++) {
+        for (int i = 0; i <= 23; i++) {
             hourlyStatsMap.put(i, 0);
         }
 
@@ -624,12 +624,10 @@ public class CalendarService {
                         String.format("%02d:00", entry.getKey()), // ex: "14:00"
                         entry.getValue()
                 ))
-                // Sortăm logic orele ca noaptea târziu să apară la finalul graficului
+                // Sortăm cronologic normal (00:00 prima, 23:00 ultima)
                 .sorted((a, b) -> {
                     int hourA = Integer.parseInt(a.ora().substring(0, 2));
                     int hourB = Integer.parseInt(b.ora().substring(0, 2));
-                    if (hourA < 6) hourA += 24;
-                    if (hourB < 6) hourB += 24;
                     return Integer.compare(hourA, hourB);
                 })
                 .toList();

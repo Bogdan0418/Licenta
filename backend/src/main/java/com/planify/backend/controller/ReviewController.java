@@ -2,13 +2,17 @@ package com.planify.backend.controller;
 
 import com.planify.backend.dto.request.CreateReviewRequest;
 import com.planify.backend.dto.response.ReviewResponse;
+import com.planify.backend.entity.Location;
+import com.planify.backend.repository.LocationRepository;
 import com.planify.backend.security.JwtService;
 import com.planify.backend.service.ReviewService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -17,11 +21,14 @@ public class ReviewController {
 
     private final ReviewService reviewService;
     private final JwtService jwtService;
+    private final LocationRepository locationRepository; // 1. Am adăugat repository-ul
 
     public ReviewController(ReviewService reviewService,
-                            JwtService jwtService) {
+                            JwtService jwtService,
+                            LocationRepository locationRepository) {
         this.reviewService = reviewService;
         this.jwtService = jwtService;
+        this.locationRepository = locationRepository;
     }
 
     // Utilizatorul lasa review locatiei
@@ -31,9 +38,8 @@ public class ReviewController {
             @Valid @RequestBody CreateReviewRequest request,
             HttpServletRequest httpRequest) {
         try {
-            Long userId = extractId(httpRequest);
-            ReviewResponse review =
-                    reviewService.addUserReview(request, userId);
+            Long userId = extractUserId(httpRequest); // Folosim extragerea pentru user
+            ReviewResponse review = reviewService.addUserReview(request, userId);
             return ResponseEntity.status(201).body(review);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -47,9 +53,8 @@ public class ReviewController {
             @Valid @RequestBody CreateReviewRequest request,
             HttpServletRequest httpRequest) {
         try {
-            Long locationId = extractId(httpRequest);
-            ReviewResponse review =
-                    reviewService.addLocationReview(request, locationId);
+            Long locationId = extractLocationId(httpRequest); // Folosim extragerea pentru locație
+            ReviewResponse review = reviewService.addLocationReview(request, locationId);
             return ResponseEntity.status(201).body(review);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -60,8 +65,7 @@ public class ReviewController {
     @GetMapping("/api/locations/public/{locationId}/reviews")
     public ResponseEntity<List<ReviewResponse>> getLocationReviews(
             @PathVariable Long locationId) {
-        return ResponseEntity.ok(
-                reviewService.getLocationReviews(locationId));
+        return ResponseEntity.ok(reviewService.getLocationReviews(locationId));
     }
 
     // Raportare review inadecvat
@@ -71,7 +75,7 @@ public class ReviewController {
             @PathVariable Long reviewId,
             HttpServletRequest httpRequest) {
         try {
-            Long userId = extractId(httpRequest);
+            Long userId = extractUserId(httpRequest); // Folosim extragerea pentru user
             reviewService.reportReview(reviewId, userId);
             return ResponseEntity.ok("Review-ul a fost raportat");
         } catch (IllegalArgumentException e) {
@@ -79,24 +83,17 @@ public class ReviewController {
         }
     }
 
-    // Helper: extrage ID din JWT
-    private Long extractId(HttpServletRequest request) {
-        String token = request.getHeader("Authorization").substring(7);
-        String publicId = jwtService.extractPublicId(token);
-        return Long.parseLong(publicId.substring(1));
-    }
-
     @GetMapping("/api/user/reviews/received")
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<ReviewResponse>> getReceivedReviews(HttpServletRequest httpRequest) {
-        Long userId = extractId(httpRequest);
+        Long userId = extractUserId(httpRequest); // Folosim extragerea pentru user
         return ResponseEntity.ok(reviewService.getUserReceivedReviews(userId));
     }
 
     @GetMapping("/api/user/reviews/given")
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<ReviewResponse>> getGivenReviews(HttpServletRequest httpRequest) {
-        Long userId = extractId(httpRequest);
+        Long userId = extractUserId(httpRequest); // Folosim extragerea pentru user
         return ResponseEntity.ok(reviewService.getUserGivenReviews(userId));
     }
 
@@ -104,8 +101,7 @@ public class ReviewController {
     @GetMapping("/api/location/reviews/received")
     @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<ReviewResponse>> getLocationReceivedReviews(HttpServletRequest httpRequest) {
-        Long locationId = extractId(httpRequest);
-        // Putem folosi direct metoda existenta
+        Long locationId = extractLocationId(httpRequest); // Folosim extragerea pentru locație
         return ResponseEntity.ok(reviewService.getLocationReviews(locationId));
     }
 
@@ -113,7 +109,7 @@ public class ReviewController {
     @GetMapping("/api/location/reviews/given")
     @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<List<ReviewResponse>> getLocationGivenReviews(HttpServletRequest httpRequest) {
-        Long locationId = extractId(httpRequest);
+        Long locationId = extractLocationId(httpRequest); // Folosim extragerea pentru locație
         return ResponseEntity.ok(reviewService.getLocationGivenReviews(locationId));
     }
 
@@ -124,11 +120,31 @@ public class ReviewController {
             @PathVariable Long reviewId,
             HttpServletRequest httpRequest) {
         try {
-            Long locationId = extractId(httpRequest);
+            Long locationId = extractLocationId(httpRequest); // Folosim extragerea pentru locație
             reviewService.reportReview(reviewId, locationId);
             return ResponseEntity.ok("Review-ul a fost raportat de locație");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // --- HELPER METODE ---
+
+    // Extrage ID-ul pentru un UTILIZATOR (Client)
+    private Long extractUserId(HttpServletRequest request) {
+        String token = request.getHeader("Authorization").substring(7);
+        String publicId = jwtService.extractPublicId(token);
+        return Long.parseLong(publicId.substring(1));
+    }
+
+    // Extrage ID-ul real pentru o LOCAȚIE, căutând în baza de date
+    private Long extractLocationId(HttpServletRequest request) {
+        String token = request.getHeader("Authorization").substring(7);
+        String publicId = jwtService.extractPublicId(token);
+
+        Location location = locationRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locația nu a fost găsită."));
+
+        return location.getId();
     }
 }

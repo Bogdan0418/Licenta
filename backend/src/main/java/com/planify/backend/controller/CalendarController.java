@@ -5,15 +5,19 @@ import com.planify.backend.dto.request.CreateZoneRequest;
 import com.planify.backend.dto.response.BookingResponse;
 import com.planify.backend.dto.response.SlotResponse;
 import com.planify.backend.dto.response.ZoneSummaryResponse;
+import com.planify.backend.entity.Location;
 import com.planify.backend.entity.VenueZone;
+import com.planify.backend.repository.LocationRepository;
 import com.planify.backend.security.JwtService;
 import com.planify.backend.service.CalendarService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,11 +27,12 @@ public class CalendarController {
 
     private final CalendarService calendarService;
     private final JwtService jwtService;
+    private final LocationRepository locationRepository;
 
-    public CalendarController(CalendarService calendarService,
-                              JwtService jwtService) {
+    public CalendarController(CalendarService calendarService, JwtService jwtService, LocationRepository locationRepository) {
         this.calendarService = calendarService;
         this.jwtService = jwtService;
+        this.locationRepository = locationRepository;
     }
 
     // --- PUBLICE ---
@@ -207,7 +212,11 @@ public class CalendarController {
     private Long extractLocationId(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
-        return Long.parseLong(publicId.substring(1));
+
+        Location location = locationRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locația nu a fost găsită."));
+
+        return location.getId();
     }
 
     @GetMapping("/api/dev/whoami")

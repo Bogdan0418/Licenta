@@ -11,11 +11,13 @@ import com.planify.backend.security.JwtService;
 import com.planify.backend.service.CalendarService;
 import com.planify.backend.service.LocationService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.planify.backend.dto.response.DashboardChartsResponse;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -70,7 +72,8 @@ public class LocationController {
     @PreAuthorize("hasAuthority('LOCATION')")
     public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
         Long locationId = extractLocationId(request);
-        Location location = locationRepository.findById(locationId).orElseThrow();
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locația nu a fost găsită în baza de date."));
 
         List<Map<String, Object>> photos = photoRepository.findByLocationIdOrderByDisplayOrderAsc(locationId)
                 .stream()
@@ -138,8 +141,14 @@ public class LocationController {
 
     private Long extractLocationId(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
-        String publicId = jwtService.extractPublicId(token);
-        return Long.parseLong(publicId.substring(1));
+        String publicId = jwtService.extractPublicId(token); // Aici obținem direct "L54"
+
+        // Căutăm locația direct după publicId ("L54"), evitând orice desincronizare de Primary Key
+        Location location = locationRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locația nu a fost găsită în baza de date."));
+
+        // Returnăm ID-ul intern real (ex: 28) pentru a fi folosit mai departe de celelalte rute
+        return location.getId();
     }
 
     @DeleteMapping("/api/location/account")

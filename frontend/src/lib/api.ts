@@ -21,7 +21,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        const isUnauthorized = error.response?.status === 401;
+        const isProfileDeleted = error.response?.status === 404 && error.config?.url?.includes('/profile');
+
+        if (isUnauthorized || isProfileDeleted) {
             // Curățăm datele locale
             localStorage.removeItem('token');
             localStorage.removeItem('user');

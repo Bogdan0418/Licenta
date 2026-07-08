@@ -23,10 +23,8 @@ const schema = z.object({
     password: z.string().min(8, 'Minim 8 caractere'),
     confirmPassword: z.string(),
     termsAccepted: z.boolean().refine(v => v, 'Trebuie să accepți termenii'),
-    
-    // --- Câmpuri Evenimente ---
     allowsEvents: z.boolean().optional().default(false),
-    onlyEvents: z.boolean().optional().default(false), // ADĂUGAT
+    onlyEvents: z.boolean().optional().default(false),
     maxEventCapacity: z.coerce.number().optional(),
     eventTypes: z.array(z.string()).optional(),
 }).refine((d) => d.password === d.confirmPassword, {
@@ -36,7 +34,6 @@ const schema = z.object({
 
 type LocationFormData = z.infer<typeof schema>;
 
-// --- LISTA ACTUALIZATĂ CU TOATE TIPURILE ---
 const locationTypes = [
     { value: 'RESTAURANT', label: 'Restaurant' },
     { value: 'BAR', label: 'Bar' },
@@ -78,7 +75,7 @@ export function RegisterLocationForm() {
         resolver: zodResolver(schema) as any,
     });
 
-    const allowsEvents = watch('allowsEvents'); 
+    const allowsEvents = watch('allowsEvents');
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -122,7 +119,12 @@ export function RegisterLocationForm() {
             setSuccess('Cont creat! Așteptați aprobarea administratorului.');
             setTimeout(() => router.push('/login'), 3000);
         } catch (err: any) {
-            setError(err.response?.data || 'Eroare la înregistrare');
+            const responseData = err.response?.data;
+            const message =
+                typeof responseData === 'string'
+                    ? responseData
+                    : responseData?.message || responseData?.error || 'Eroare la înregistrare';
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -190,7 +192,6 @@ export function RegisterLocationForm() {
                         className="w-full bg-black/40 border border-white/10 text-white px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all appearance-none"
                     >
                         <option value="" className="text-zinc-500">Selectează...</option>
-                        {/* AICI ESTE MAPPING-UL ACTUALIZAT */}
                         {locationTypes.map(({ value, label }) => (
                             <option key={value} value={value} className="bg-[#0a0a0b] text-white">{label}</option>
                         ))}
@@ -254,7 +255,7 @@ export function RegisterLocationForm() {
                 />
             </div>
 
-            {/* SECTIUNE NOUA: Organizare Evenimente */}
+            {/* SECTIUNE: Organizare Evenimente */}
             <div className="bg-[#121214] border border-white/5 rounded-xl p-5 mt-4">
                 <label className="flex items-center gap-3 cursor-pointer group">
                     <div className="relative flex items-center justify-center">
@@ -272,7 +273,6 @@ export function RegisterLocationForm() {
 
                 {allowsEvents && (
                     <div className="mt-4 space-y-4 animate-slide-up">
-                        {/* ALEGERE TIP EVENIMENT VS STANDARD */}
                         <div className="bg-black/40 p-4 rounded-xl border border-[#C5A059]/20">
                             <label className="flex items-center gap-3 cursor-pointer group">
                                 <div className="relative flex items-center justify-center">
@@ -299,16 +299,16 @@ export function RegisterLocationForm() {
                                 className="w-full sm:w-1/2 bg-white/5 border border-white/10 text-white placeholder-zinc-600 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all"
                             />
                         </div>
-                        
+
                         <div>
                             <label className="text-xs font-light text-zinc-400 mb-2 block uppercase tracking-wider">Ce tipuri de evenimente găzduiți?</label>
                             <div className="flex flex-wrap gap-2">
                                 {eventTypesOptions.map((type) => (
                                     <label key={type} className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-2 rounded-lg cursor-pointer hover:border-white/30 transition-all text-xs text-zinc-300">
-                                        <input 
-                                            type="checkbox" 
-                                            value={type} 
-                                            {...register('eventTypes')} 
+                                        <input
+                                            type="checkbox"
+                                            value={type}
+                                            {...register('eventTypes')}
                                             className="accent-[#C5A059] w-3 h-3 rounded"
                                         />
                                         {type}

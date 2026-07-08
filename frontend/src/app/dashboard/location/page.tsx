@@ -63,6 +63,7 @@ export default function LocationDashboardPage() {
         queryKey: ['location-profile'],
         queryFn: async () => (await api.get('/api/location/profile')).data,
         enabled: !!user,
+        retry: false,
     });
 
     useEffect(() => {
@@ -324,6 +325,12 @@ export default function LocationDashboardPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 shrink-0">
+                                                    <button 
+                                                        onClick={() => setActiveChat({ id: booking.id, name: 'Client' })} 
+                                                        className="text-xs font-medium text-black bg-[#C5A059] hover:bg-[#b08d4a] px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                                                    >
+                                                        <MessageCircle size={14} /> Discută
+                                                    </button>
                                                     <button onClick={() => approveEvent(booking.id)} className="text-xs font-medium text-black bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-lg transition-all shadow-md">
                                                         Acceptă
                                                     </button>
@@ -357,42 +364,46 @@ export default function LocationDashboardPage() {
                             </div>
                         )}
                         {/* MESAJE ȘI CONVERSAȚII ACTIVE */}
-                        {activeChats && activeChats.length > 0 && (
+                        {activeChats && (
                             <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col h-fit">
                                 <h2 className="font-serif text-lg text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">
                                     <MessageCircle size={18} className="text-[#C5A059]" /> Mesaje Clienți
                                 </h2>
-                                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                    {activeChats.map((chat) => (
-                                        <div 
-                                            key={chat.bookingId} 
-                                            onClick={() => setActiveChat({ id: chat.bookingId, name: chat.clientName })}
-                                            className="bg-[#121214] border border-white/5 hover:border-[#C5A059]/50 cursor-pointer rounded-xl p-4 flex items-center justify-between transition-all group relative overflow-hidden"
-                                        >
-                                            {/* Glow dacă sunt mesaje necitite */}
-                                            {chat.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C5A059]"></div>}
-                                            
-                                            <div className="flex-1 min-w-0 pr-4">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`font-bold text-sm ${chat.unreadCount > 0 ? 'text-[#C5A059]' : 'text-white'}`}>{chat.clientName}</span>
-                                                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-zinc-400">Rezervarea #{chat.bookingId}</span>
+                                {activeChats.length === 0 ? (
+                                    <p className="text-xs text-zinc-500 font-light text-center py-4">Nu există mesaje active. Deschide o conversație de la o rezervare.</p>
+                                ) : (
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                        {activeChats.map((chat) => (
+                                            <div 
+                                                key={chat.bookingId} 
+                                                onClick={() => setActiveChat({ id: chat.bookingId, name: chat.clientName })}
+                                                className="bg-[#121214] border border-white/5 hover:border-[#C5A059]/50 cursor-pointer rounded-xl p-4 flex items-center justify-between transition-all group relative overflow-hidden"
+                                            >
+                                                {/* Glow dacă sunt mesaje necitite */}
+                                                {chat.unreadCount > 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C5A059]"></div>}
+                                                
+                                                <div className="flex-1 min-w-0 pr-4">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`font-bold text-sm ${chat.unreadCount > 0 ? 'text-[#C5A059]' : 'text-white'}`}>{chat.clientName}</span>
+                                                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-zinc-400">Rezervarea #{chat.bookingId}</span>
+                                                    </div>
+                                                    <p className={`text-xs truncate ${chat.unreadCount > 0 ? 'text-white font-medium' : 'text-zinc-500 font-light'}`}>
+                                                        {chat.lastMessage}
+                                                    </p>
                                                 </div>
-                                                <p className={`text-xs truncate ${chat.unreadCount > 0 ? 'text-white font-medium' : 'text-zinc-500 font-light'}`}>
-                                                    {chat.lastMessage}
-                                                </p>
+                                                
+                                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                                    <span className="text-[9px] text-zinc-500">{format(parseISO(chat.lastMessageTime), 'HH:mm', { locale: ro })}</span>
+                                                    {chat.unreadCount > 0 && (
+                                                        <span className="bg-[#C5A059] text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(197,160,89,0.4)]">
+                                                            {chat.unreadCount} nouă
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            
-                                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                                <span className="text-[9px] text-zinc-500">{format(parseISO(chat.lastMessageTime), 'HH:mm', { locale: ro })}</span>
-                                                {chat.unreadCount > 0 && (
-                                                    <span className="bg-[#C5A059] text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(197,160,89,0.4)]">
-                                                        {chat.unreadCount} nouă
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                         {/* AGENDA ZILEI */}
@@ -457,6 +468,13 @@ export default function LocationDashboardPage() {
                                                         {statusLabels[booking.status] || booking.status}
                                                     </span>
                                                     <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => setActiveChat({ id: booking.id, name: 'Client' })} 
+                                                            className="text-xs font-medium text-[#C5A059] hover:text-black hover:bg-[#C5A059] border border-[#C5A059]/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
+                                                        >
+                                                            <MessageCircle size={12} /> Discută
+                                                        </button>
+
                                                         {booking.status === 'CONFIRMED' && (
                                                             <button onClick={() => markNoShow(booking.id)} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 transition-all">No-show</button>
                                                         )}

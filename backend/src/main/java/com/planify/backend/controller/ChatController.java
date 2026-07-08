@@ -2,15 +2,19 @@ package com.planify.backend.controller;
 
 import com.planify.backend.entity.Booking;
 import com.planify.backend.entity.ChatMessage;
+import com.planify.backend.entity.Location;
 import com.planify.backend.entity.enums.BookingStatus;
 import com.planify.backend.repository.BookingRepository;
 import com.planify.backend.repository.ChatMessageRepository;
+import com.planify.backend.repository.LocationRepository;
 import com.planify.backend.security.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,11 +27,17 @@ public class ChatController {
     private final ChatMessageRepository chatRepository;
     private final BookingRepository bookingRepository;
     private final JwtService jwtService;
+    private final LocationRepository locationRepository; // <-- Am adăugat repository-ul
 
-    public ChatController(ChatMessageRepository chatRepository, BookingRepository bookingRepository, JwtService jwtService) {
+    // L-am injectat în constructor
+    public ChatController(ChatMessageRepository chatRepository,
+                          BookingRepository bookingRepository,
+                          JwtService jwtService,
+                          LocationRepository locationRepository) {
         this.chatRepository = chatRepository;
         this.bookingRepository = bookingRepository;
         this.jwtService = jwtService;
+        this.locationRepository = locationRepository;
     }
 
     // 1. Preluăm mesajele unei rezervări
@@ -120,7 +130,7 @@ public class ChatController {
         return ResponseEntity.ok(activeChats);
     }
 
-    // Funcție de securitate: verifică dacă ai voie să accesezi chat-ul
+    // Funcție de securitate corectată
     private String validateAccess(HttpServletRequest request, Booking booking) {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
@@ -135,7 +145,11 @@ public class ChatController {
             return "USER";
         } else if (publicId != null && publicId.toUpperCase().startsWith("L")) {
             // Este locație (Location)
-            Long locationId = Long.parseLong(publicId.substring(1));
+            // Extragem ID-ul real din baza de date
+            Location location = locationRepository.findByPublicId(publicId)
+                    .orElseThrow(() -> new SecurityException("Locația nu există în baza de date."));
+            Long locationId = location.getId();
+
             Long bookingLocationId = booking.getZone().getLocation().getId();
             if (!bookingLocationId.equals(locationId)) {
                 throw new SecurityException("Acces interzis. Această rezervare nu este la locația ta.");
@@ -146,13 +160,18 @@ public class ChatController {
         throw new SecurityException("Token invalid sau format necunoscut: " + publicId);
     }
 
+    // Extragere sigură prin DB
     private Long extractLocationId(HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
         String publicId = jwtService.extractPublicId(token);
         if (publicId == null || !publicId.toUpperCase().startsWith("L")) {
             throw new SecurityException("Token invalid pentru o locație.");
         }
-        return Long.parseLong(publicId.substring(1));
+
+        Location location = locationRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locația nu a fost găsită."));
+
+        return location.getId();
     }
 
     // 5. Preluăm numărul de mesaje necitite pentru client
